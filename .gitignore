@@ -8,6 +8,16 @@ __pycache__/
 *$py.class
 *.so
 .Python
+.pytest_cache/
+
+# Databases
+*.db
+*.sqlite
+*.sqlite3
+
+# Uploads & Temp media
+uploads/
+test_craftlens.db
 
 # Node / Web / Mobile
 node_modules/

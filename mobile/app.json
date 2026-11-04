@@ -1,0 +1,33 @@
+{
+  "expo": {
+    "name": "CraftLens",
+    "slug": "craftlens",
+    "version": "2.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "splash": {
+      "backgroundColor": "#F8F6F0"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "org.craftlens.artisan"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#285C45"
+      },
+      "package": "org.craftlens.artisan"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "CraftLens needs camera access to photograph your handmade crafts and generate professional catalogs."
+        }
+      ]
+    ]
+  }
+}
+

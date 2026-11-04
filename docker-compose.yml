@@ -1,0 +1,66 @@
+services:
+  postgres:
+    image: pgvector/pgvector:pg16
+    container_name: craftlens-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: craftlens_user
+      POSTGRES_PASSWORD: craftlens_secure_pass
+      POSTGRES_DB: craftlens_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U craftlens_user -d craftlens_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    container_name: craftlens-redis
+    restart: unless-stopped
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: craftlens-backend
+    restart: unless-stopped
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    environment:
+      DATABASE_URL: postgresql+psycopg2://craftlens_user:craftlens_secure_pass@postgres:5432/craftlens_db
+      REDIS_URL: redis://redis:6379/0
+      AI_SERVICE_URL: http://ai-service:8001
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - backend_uploads:/app/uploads
+
+  ai-service:
+    build:
+      context: ./ai-service
+      dockerfile: Dockerfile
+    container_name: craftlens-ai-service
+    restart: unless-stopped
+    depends_on:
+      - redis
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./ai-service:/app
+
+volumes:
+  pgdata:
+  redisdata:
+  backend_uploads:
