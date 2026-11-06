@@ -116,3 +116,4 @@ def test_marketplace_discovery_and_checkout_flow(db):
     assert len(artisan_orders.data) == 1
     assert artisan_orders.data[0]["quantity"] == 2
     assert artisan_orders.data[0]["total_payout"] == 1700.0
+

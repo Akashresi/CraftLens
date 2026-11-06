@@ -214,3 +214,4 @@ def get_artisan_incoming_orders(
         message="Artisan incoming order items retrieved",
         data=results,
     )
+

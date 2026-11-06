@@ -159,3 +159,4 @@ def verify_heritage_qr(
         message="Authentic craft heritage verified",
         data=story,
     )
+

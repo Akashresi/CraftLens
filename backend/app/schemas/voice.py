@@ -37,3 +37,4 @@ class ApplyCatalogIn(BaseModel):
     seo_keywords: List[str] = []
     source_transcript: Optional[str] = None
     source_language: str = "ta"
+

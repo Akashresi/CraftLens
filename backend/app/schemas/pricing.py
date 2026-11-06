@@ -46,3 +46,4 @@ class SavePricingIn(BaseModel):
     min_wholesale_qty: int = 10
     stock_quantity: int = 5
     sku: Optional[str] = None
+

@@ -51,3 +51,4 @@ class PublicHeritageStoryOut(BaseModel):
     maker_signature_hash: Optional[str] = None
     verified_genuine: bool = True
     scan_count: int
+

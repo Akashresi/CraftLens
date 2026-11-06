@@ -100,3 +100,4 @@ def test_b2b_rfq_and_purchase_order_flow(db):
     assert po is not None
     assert po.quotation.status == "ACCEPTED"
     assert po.quotation.purchase_request.status == "ACCEPTED"
+

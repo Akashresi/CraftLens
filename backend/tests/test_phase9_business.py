@@ -98,3 +98,4 @@ def test_business_dashboard_and_ai_assistant_flow(db):
     copy_data = marketing_res.data
     assert "#CraftLens" in copy_data.generated_content
     assert "Diwali" in copy_data.generated_content
+

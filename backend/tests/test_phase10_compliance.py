@@ -44,3 +44,4 @@ def test_dpdp_consent_and_audit_logging_flow(db):
     list_res = get_user_consents(db=db, current_user=user)
     assert len(list_res.data) == 1
     assert list_res.data[0].consent_type == "DPDP_PRIVACY_POLICY"
+

@@ -45,3 +45,4 @@ class ExpenseCreateIn(BaseModel):
     amount: float = Field(..., gt=0)
     category: str = Field(..., description="RAW_MATERIALS, TOOLS, DYE, LOGISTICS, WORKSHOP_RENT")
     notes: Optional[str] = None
+

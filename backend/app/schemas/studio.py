@@ -23,3 +23,4 @@ class StudioProcessResult(BaseModel):
     quality_score: float
     latency_ms: int
     status: str
+

@@ -1,0 +1,535 @@
+import os
+import subprocess
+
+HTML_CONTENT = """<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Figure 4.7: Mobile AI Studio Tab</title>
+<style>
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    background-color: #F8F6F0;
+    color: #242B27;
+    padding: 30px;
+    width: 1200px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 1050px;
+  }
+  .wrapper {
+    display: flex;
+    gap: 40px;
+    align-items: center;
+    max-width: 1140px;
+  }
+
+  /* Phone Mockup */
+  .phone-frame {
+    width: 440px;
+    height: 940px;
+    background: #FFFFFF;
+    border-radius: 48px;
+    box-shadow: 0 25px 60px -15px rgba(36, 43, 39, 0.2), 0 0 0 10px #242B27, 0 0 0 12px #D9D4C7;
+    overflow: hidden;
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    border: 3px solid #242B27;
+  }
+
+  /* Phone Notch & Status Bar */
+  .phone-header {
+    background: #FFFFFF;
+    padding: 12px 24px 8px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: #242B27;
+    border-bottom: 1px solid #F0ECE1;
+  }
+  .dynamic-island {
+    position: absolute;
+    top: 10px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 110px;
+    height: 26px;
+    background: #242B27;
+    border-radius: 20px;
+    z-index: 50;
+  }
+
+  /* App Navigation */
+  .app-nav {
+    background: #FFFFFF;
+    padding: 10px 18px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid #E8E5DC;
+  }
+  .nav-title {
+    font-size: 17px;
+    font-weight: 800;
+    color: #285C45;
+  }
+  .nav-sub {
+    font-size: 11px;
+    color: #858B83;
+  }
+
+  /* Screen Body */
+  .screen-body {
+    flex: 1;
+    overflow-y: hidden;
+    padding: 14px 16px;
+    background: #F8F6F0;
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+  }
+
+  /* Camera Viewport */
+  .camera-viewport {
+    background: radial-gradient(circle at 50% 45%, #FFFFFF 30%, #F5F3EF 80%, #EDE9E1 100%);
+    border: 1px solid #E8E5DC;
+    border-radius: 16px;
+    height: 350px;
+    position: relative;
+    overflow: hidden;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 12px rgba(36,43,39,0.06);
+  }
+
+  /* Camera Overlays / HUD */
+  .quality-badge {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid #CFE3D5;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 800;
+    color: #32815A;
+    display: flex;
+    align-items: center;
+    gap: 5px;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.05);
+    z-index: 20;
+  }
+  .exposure-badge {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    background: rgba(255, 255, 255, 0.94);
+    border: 1px solid #E8E5DC;
+    padding: 4px 10px;
+    border-radius: 20px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #285C45;
+    z-index: 20;
+  }
+
+  .focus-box {
+    position: absolute;
+    width: 200px;
+    height: 250px;
+    border: 1.5px dashed rgba(40,92,69,0.4);
+    border-radius: 12px;
+    pointer-events: none;
+    z-index: 15;
+  }
+
+  /* Studio Shadow & Craft SVG */
+  .studio-shadow {
+    position: absolute;
+    bottom: 35px;
+    width: 170px;
+    height: 22px;
+    background: radial-gradient(ellipse at center, rgba(36,43,39,0.3) 0%, rgba(36,43,39,0.08) 50%, rgba(36,43,39,0) 80%);
+    border-radius: 50%;
+  }
+  .craft-item {
+    position: absolute;
+    bottom: 40px;
+    z-index: 10;
+    filter: drop-shadow(0 4px 6px rgba(0,0,0,0.08));
+  }
+
+  /* Compare Toggle Bar */
+  .toggle-bar {
+    position: absolute;
+    bottom: 12px;
+    background: rgba(36, 43, 39, 0.85);
+    border-radius: 30px;
+    padding: 3px;
+    display: flex;
+    gap: 2px;
+    z-index: 25;
+  }
+  .toggle-btn {
+    padding: 4px 12px;
+    border-radius: 20px;
+    font-size: 10px;
+    font-weight: 700;
+    color: #D9D4C7;
+  }
+  .toggle-btn-active {
+    background: #FFFFFF;
+    color: #242B27;
+  }
+
+  /* Quality Score Strip */
+  .quality-strip {
+    background: #FFFFFF;
+    border: 1px solid #E8E5DC;
+    border-radius: 10px;
+    padding: 8px 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+  }
+  .qs-label { font-weight: 600; color: #858B83; }
+  .qs-val { font-weight: 800; color: #285C45; }
+
+  /* Processing Options Card */
+  .options-card {
+    background: #FFFFFF;
+    border: 1px solid #E8E5DC;
+    border-radius: 14px;
+    padding: 12px;
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+  }
+  .options-title {
+    font-size: 11px;
+    font-weight: 800;
+    text-transform: uppercase;
+    color: #C47B52;
+    letter-spacing: 0.5px;
+  }
+  .options-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 8px;
+  }
+  .option-tile {
+    background: #FAF8F5;
+    border: 1px solid #E8E5DC;
+    border-radius: 10px;
+    padding: 8px 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #242B27;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .option-selected {
+    border: 2px solid #285C45;
+    background: #EAF2ED;
+    color: #285C45;
+  }
+
+  /* Action Buttons */
+  .action-row {
+    display: flex;
+    gap: 8px;
+  }
+  .action-btn-sec {
+    flex: 1;
+    background: #FFFFFF;
+    border: 1px solid #E8E5DC;
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 11px;
+    font-weight: 700;
+    color: #242B27;
+    text-align: center;
+  }
+  .action-btn-prim {
+    flex: 1.4;
+    background: #285C45;
+    padding: 10px;
+    border-radius: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #FFFFFF;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(40,92,69,0.3);
+  }
+
+  /* Bottom Tab Navigation Bar */
+  .tab-bar-mobile {
+    background: #FFFFFF;
+    border-top: 1px solid #E8E5DC;
+    display: flex;
+    justify-content: space-around;
+    padding: 8px 4px 18px;
+  }
+  .tab-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-size: 10px;
+    font-weight: 600;
+    color: #858B83;
+    gap: 3px;
+  }
+  .tab-active {
+    color: #285C45;
+    font-weight: 800;
+  }
+  .tab-icon {
+    font-size: 16px;
+  }
+
+  /* Side Annotation Card */
+  .annotation-box {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+  }
+  .info-card {
+    background: #FFFFFF;
+    border: 1px solid #E8E5DC;
+    border-radius: 14px;
+    padding: 24px;
+    box-shadow: 0 4px 12px rgba(36,43,39,0.05);
+  }
+  .info-title {
+    font-size: 18px;
+    font-weight: 800;
+    color: #285C45;
+    margin-bottom: 8px;
+  }
+  .info-desc {
+    font-size: 13px;
+    color: #636A64;
+    line-height: 1.6;
+    margin-bottom: 16px;
+  }
+  .feature-box {
+    background: #FAF8F5;
+    border: 1px solid #E8E5DC;
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin-bottom: 10px;
+  }
+  .feature-head {
+    font-size: 13px;
+    font-weight: 700;
+    color: #242B27;
+    margin-bottom: 4px;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+  }
+  .feature-sub {
+    font-size: 12px;
+    color: #858B83;
+    line-height: 1.4;
+  }
+</style>
+</head>
+<body>
+
+<div class="wrapper">
+  <!-- Mobile Device Frame -->
+  <div class="phone-frame">
+    <div class="dynamic-island"></div>
+    <div class="phone-header">
+      <span>9:41</span>
+      <span style="letter-spacing: 1px;">5G 100%</span>
+    </div>
+
+    <div class="app-nav">
+      <div>
+        <div class="nav-title">AI Product Studio</div>
+        <div class="nav-sub">Automated studio lighting & shadows</div>
+      </div>
+      <span style="font-size: 18px;">📸</span>
+    </div>
+
+    <div class="screen-body">
+      <!-- Camera Viewport with Real-time HUD -->
+      <div class="camera-viewport">
+        <div class="quality-badge">
+          <span>✓ Sharpness: 184.2 (Excellent)</span>
+        </div>
+        <div class="exposure-badge">
+          <span>Exposure: Balanced</span>
+        </div>
+
+        <div class="focus-box"></div>
+        <div class="studio-shadow"></div>
+
+        <!-- Terracotta Sculpture SVG -->
+        <svg class="craft-item" width="180" height="230" viewBox="0 0 220 280">
+          <path d="M 60 255 L 160 255 L 150 240 L 70 240 Z" fill="#A8572D" stroke="#7A3B18" stroke-width="1.5"/>
+          <rect x="75" y="240" width="70" height="8" fill="#C47347"/>
+          <ellipse cx="110" cy="180" rx="42" ry="48" fill="#D47A4A"/>
+          <path d="M 80 190 L 68 245 L 82 245 L 94 195 Z" fill="#B85E30"/>
+          <path d="M 140 190 L 152 245 L 138 245 L 126 195 Z" fill="#B85E30"/>
+          <path d="M 95 155 Q 85 110 102 75 Q 115 65 128 75 Q 135 110 125 155 Z" fill="#D47A4A"/>
+          <ellipse cx="115" cy="72" rx="22" ry="16" fill="#E68B59"/>
+          <path d="M 125 65 L 142 70 L 128 78 Z" fill="#B85E30"/>
+          <path d="M 100 62 L 95 42 L 108 55 Z" fill="#E68B59" stroke="#7A3B18" stroke-width="1.5"/>
+          <path d="M 120 62 L 125 42 L 112 55 Z" fill="#E68B59" stroke="#7A3B18" stroke-width="1.5"/>
+          <path d="M 92 110 Q 110 125 128 110" fill="none" stroke="#F9CE34" stroke-width="4"/>
+          <circle cx="110" cy="122" r="5" fill="#E53935"/>
+          <circle cx="98" cy="116" r="3.5" fill="#F9CE34"/>
+          <circle cx="122" cy="116" r="3.5" fill="#F9CE34"/>
+          <path d="M 90 140 Q 110 160 130 140" fill="none" stroke="#FFFFFF" stroke-width="3" stroke-dasharray="4,3"/>
+          <circle cx="110" cy="155" r="4.5" fill="#F9CE34"/>
+          <circle cx="110" cy="70" r="3.5" fill="#242B27"/>
+          <circle cx="111" cy="69" r="1.2" fill="#FFFFFF"/>
+        </svg>
+
+        <div class="toggle-bar">
+          <div class="toggle-btn">Original</div>
+          <div class="toggle-btn toggle-btn-active">Studio AI</div>
+        </div>
+      </div>
+
+      <!-- Quality Metrics Strip -->
+      <div class="quality-strip">
+        <span class="qs-label">Blur Variance: <span class="qs-val">184.2</span></span>
+        <span class="qs-label">CLAHE: <span class="qs-val">Equalized</span></span>
+        <span class="qs-label">Status: <span class="qs-val" style="color: #32815A;">Ready</span></span>
+      </div>
+
+      <!-- Processing Options -->
+      <div class="options-card">
+        <div class="options-title">Processing & Background Modes</div>
+        <div class="options-grid">
+          <div class="option-tile option-selected">
+            <span>✨</span> Studio White Floor
+          </div>
+          <div class="option-tile">
+            <span>🪵</span> Warm Teak Table
+          </div>
+          <div class="option-tile">
+            <span>🌾</span> Natural Linen
+          </div>
+          <div class="option-tile">
+            <span>🏺</span> Kiln Atelier
+          </div>
+        </div>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="action-row">
+        <div class="action-btn-sec">Retake Camera</div>
+        <div class="action-btn-prim">Generate Studio Photo</div>
+      </div>
+    </div>
+
+    <!-- Mobile Bottom Tab Bar -->
+    <div class="tab-bar-mobile">
+      <div class="tab-item">
+        <span class="tab-icon">🏠</span>
+        <span>Home</span>
+      </div>
+      <div class="tab-item tab-active">
+        <span class="tab-icon">📷</span>
+        <span>Studio</span>
+      </div>
+      <div class="tab-item">
+        <span class="tab-icon">🎙️</span>
+        <span>Voice AI</span>
+      </div>
+      <div class="tab-item">
+        <span class="tab-icon">🧮</span>
+        <span>Pricing</span>
+      </div>
+      <div class="tab-item">
+        <span class="tab-icon">📦</span>
+        <span>Orders</span>
+      </div>
+      <div class="tab-item">
+        <span class="tab-icon">👤</span>
+        <span>Profile</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Side Annotation & Technical Context -->
+  <div class="annotation-box">
+    <div class="info-card">
+      <div style="font-size: 12px; font-weight: 800; color: #C47B52; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 4px;">
+        Figure 4.7 Documentation
+      </div>
+      <div class="info-title">AI Product Studio Mobile Application Tab</div>
+      <div class="info-desc">
+        The mobile AI Studio tab empowers artisans to capture professional, e-commerce-ready product photographs using standard commodity smartphones without requiring expensive lighting rigs, backdrops, or editing software.
+      </div>
+
+      <div class="feature-box">
+        <div class="feature-head">
+          <span>🔍</span> Real-Time Laplacian Blur Inspection
+        </div>
+        <div class="feature-sub">
+          Calculates second-order spatial derivatives on-device. If variance falls below 90.0, the artisan receives immediate audio and visual guidance to steady their phone.
+        </div>
+      </div>
+
+      <div class="feature-box">
+        <div class="feature-head">
+          <span>⚡</span> White Studio & Contact Shadow Generation
+        </div>
+        <div class="feature-sub">
+          Separates the handmade object from cluttered workshop backgrounds using U²-Net/GrabCut, rendering a seamless white studio floor with soft Gaussian contact shadows.
+        </div>
+      </div>
+
+      <div class="feature-box">
+        <div class="feature-head">
+          <span>🛡️</span> Zero Fabricated Alteration
+        </div>
+        <div class="feature-sub">
+          Crucially, the pipeline never alters the craft's authentic hand-painted motifs, natural clay textures, or irregular contours, preserving cultural integrity.
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>
+"""
+
+with open("photos/fig_4_7.html", "w", encoding="utf-8") as f:
+    f.write(HTML_CONTENT)
+
+chrome_path = r"C:\Program Files\Google\Chrome\Application\chrome.exe"
+out_img = r"D:\projects\KD\SIH26090\photos\Figure_4.7_Mobile_AI_Studio.png"
+
+args = [
+    chrome_path,
+    "--headless=new",
+    "--no-sandbox",
+    "--disable-gpu",
+    "--window-size=1200,1050",
+    f"--screenshot={out_img}",
+    "file:///D:/projects/KD/SIH26090/photos/fig_4_7.html"
+]
+
+res = subprocess.run(args, capture_output=True, text=True)
+print("Return code:", res.returncode)
+print("File exists:", os.path.exists(out_img))
+if os.path.exists(out_img):
+    print("File size:", os.path.getsize(out_img), "bytes")

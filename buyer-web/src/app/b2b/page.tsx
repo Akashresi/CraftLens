@@ -351,3 +351,4 @@ export default function B2BWholesalePage() {
     </div>
   );
 }
+

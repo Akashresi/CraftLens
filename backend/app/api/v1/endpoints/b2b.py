@@ -167,3 +167,4 @@ def accept_quotation_and_generate_po(
         message="Quotation accepted and Purchase Order issued",
         data=PurchaseOrderOut.model_validate(po),
     )
+

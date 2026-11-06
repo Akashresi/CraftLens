@@ -85,3 +85,4 @@ def get_user_consents(
         message="Active consents retrieved",
         data=[ConsentRecordOut.model_validate(c) for c in consents],
     )
+

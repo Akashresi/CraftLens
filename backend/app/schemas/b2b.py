@@ -57,3 +57,4 @@ class PurchaseRequestOut(BaseModel):
     status: str
     created_at: datetime
     quotations: List[QuotationOut] = []
+

@@ -70,3 +70,4 @@ def test_heritage_provenance_and_qr_verification_flow(db):
     assert story.maker_signature_hash == prov_res.data.maker_signature_hash
     assert story.verified_genuine is True
     assert story.scan_count == 1  # Incremented on scan
+

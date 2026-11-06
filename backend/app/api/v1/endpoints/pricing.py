@@ -107,3 +107,4 @@ def apply_pricing_to_product(
             "stock_quantity": variant.stock_quantity,
         },
     )
+

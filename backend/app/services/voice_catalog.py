@@ -146,3 +146,4 @@ Return STRICTLY a JSON object with:
             "seo_keywords": ["handmade in india", "artisan craft", "sustainable handmade", "cultural heritage", "vocal for local"],
             "suggested_category_slug": "woodcraft-toys",
         }
+

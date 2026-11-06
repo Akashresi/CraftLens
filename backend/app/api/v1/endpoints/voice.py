@@ -139,3 +139,4 @@ def apply_catalog_to_product(
         message="Product listing created with multilingual descriptions",
         data={"product_id": product.id, "slug": product.slug},
     )
+

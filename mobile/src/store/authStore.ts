@@ -30,3 +30,4 @@ export const useAuthStore = create<AuthState>((set) => ({
     set({ user, token, isAuthenticated: true, language: user.preferred_language || "ta" }),
   logout: () => set({ user: null, token: null, isAuthenticated: false }),
 }));
+

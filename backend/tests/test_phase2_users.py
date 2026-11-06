@@ -92,3 +92,4 @@ def test_buyer_wholesale_profile_flow(db):
     assert biz_res.success is True
     assert biz_res.data.company_name == "Heritage Handicrafts Export Ltd"
     assert biz_res.data.gst_number == "27AABCU9603R1ZM"
+

@@ -132,3 +132,4 @@ def get_public_artisan_profile(
         message="Public artisan profile loaded",
         data=ArtisanProfileOut.model_validate(profile),
     )
+

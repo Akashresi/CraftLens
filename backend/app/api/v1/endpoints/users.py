@@ -66,3 +66,4 @@ def change_user_password(
         message="Password changed successfully",
         data=True,
     )
+

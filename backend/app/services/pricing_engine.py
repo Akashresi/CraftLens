@@ -99,3 +99,4 @@ def compute_craft_pricing(
             "market_max_price": market_max,
         },
     }
+

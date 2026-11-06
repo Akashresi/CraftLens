@@ -79,3 +79,4 @@ def test_apply_catalog_persists_multilingual_entities(db):
     lang_codes = {t.language_code for t in translations}
     assert "en" in lang_codes
     assert "hi" in lang_codes
+

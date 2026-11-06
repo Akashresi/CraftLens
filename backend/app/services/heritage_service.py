@@ -38,3 +38,4 @@ def generate_qr_code_image(public_url: str, qr_hash: str) -> str:
     file_path = f"{UPLOAD_BASE}/qr/{qr_hash}.png"
     img.save(file_path)
     return f"/uploads/qr/{qr_hash}.png"
+

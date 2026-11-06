@@ -88,3 +88,4 @@ def test_apply_pricing_to_product_flow(db):
     inv = db.query(Inventory).filter(Inventory.product_variant_id == variant.id).first()
     assert inv is not None
     assert inv.quantity_on_hand == 8
+

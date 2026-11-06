@@ -101,3 +101,4 @@ def update_my_business_profile(
         message="B2B Wholesale business profile updated",
         data=BuyerBusinessProfileOut.model_validate(business),
     )
+

@@ -44,3 +44,4 @@ class BuyerProfileOut(BaseModel):
     business_profile: Optional[BuyerBusinessProfileOut] = None
     created_at: datetime
     updated_at: datetime
+

@@ -112,3 +112,4 @@ def record_business_expense(
         message="Expense recorded successfully",
         data={"expense_id": expense.id, "amount": float(expense.amount), "category": expense.category},
     )
+
