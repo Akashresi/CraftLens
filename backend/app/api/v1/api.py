@@ -14,6 +14,7 @@ from app.api.v1.endpoints import (
     heritage,
     business,
     compliance,
+    artisan_applications,
 )
 
 api_router = APIRouter()
@@ -22,6 +23,7 @@ api_router.include_router(health.router, tags=["Health"])
 api_router.include_router(auth.router, prefix="/auth", tags=["Authentication & Access"])
 api_router.include_router(users.router, prefix="/users", tags=["Users"])
 api_router.include_router(artisans.router, prefix="/artisans", tags=["Artisans"])
+api_router.include_router(artisan_applications.router, prefix="/artisan-applications", tags=["Artisan Applications"])
 api_router.include_router(buyers.router, prefix="/buyers", tags=["Buyers"])
 api_router.include_router(studio.router, prefix="/studio", tags=["AI Product Studio"])
 api_router.include_router(voice.router, prefix="/voice", tags=["Multilingual Voice AI"])

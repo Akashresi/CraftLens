@@ -13,7 +13,6 @@ def test_dpdp_consent_and_audit_logging_flow(db):
             email="privacy.artisan@craftlens.org",
             password="SecurePass#123",
             full_name="Craft Artisan Privacy Test",
-            role_code="ARTISAN"
         ),
         db=db
     )

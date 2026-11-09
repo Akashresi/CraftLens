@@ -1,28 +1,44 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useCallback } from "react";
 import {
   Users,
   CheckCircle2,
   XCircle,
-  ShieldCheck,
   AlertTriangle,
   Cpu,
   Activity,
   FileCheck,
-  Building,
   TrendingUp,
+  ExternalLink,
+  Clock,
+  MapPin,
+  Briefcase,
+  FileText,
+  RefreshCw,
+  Search,
+  Filter,
 } from "lucide-react";
 
-interface VerificationItem {
+interface ArtisanApplication {
   id: string;
-  artisan_name: string;
-  cluster: string;
-  craft_type: string;
-  pehchan_id: string;
+  user_id: string;
+  applicant_email: string | null;
+  applicant_phone: string | null;
+  full_name: string;
+  craft_specialization: string;
+  experience_years: number;
+  city: string;
   state: string;
-  date: string;
+  portfolio_url: string | null;
+  craft_description: string;
+  supporting_documents_url: string | null;
   status: "PENDING" | "APPROVED" | "REJECTED";
+  reviewer_notes: string | null;
+  reviewed_by_user_id: string | null;
+  reviewed_at: string | null;
+  created_at: string;
+  updated_at: string;
 }
 
 interface ModerationItem {
@@ -34,39 +50,6 @@ interface ModerationItem {
   image_quality_score: number;
   status: "PENDING" | "APPROVED" | "REJECTED";
 }
-
-const INITIAL_ARTISANS: VerificationItem[] = [
-  {
-    id: "art-1",
-    artisan_name: "Kuppusamy Karuppiah",
-    cluster: "Vilachery Clay Cluster, Madurai",
-    craft_type: "Terracotta Sculpture",
-    pehchan_id: "PEH-TN-98102",
-    state: "Tamil Nadu",
-    date: "2026-11-04",
-    status: "PENDING",
-  },
-  {
-    id: "art-2",
-    artisan_name: "Mangala Bai Maravi",
-    cluster: "Dindori Gond Art Cluster",
-    craft_type: "Gond Painting",
-    pehchan_id: "PEH-MP-41092",
-    state: "Madhya Pradesh",
-    date: "2026-11-03",
-    status: "PENDING",
-  },
-  {
-    id: "art-3",
-    artisan_name: "Shabbir Hussain Mir",
-    cluster: "Srinagar Papier Mache Guild",
-    craft_type: "Kashmir Papier Mache",
-    pehchan_id: "PEH-JK-10842",
-    state: "Jammu & Kashmir",
-    date: "2026-11-02",
-    status: "PENDING",
-  },
-];
 
 const INITIAL_MODERATION: ModerationItem[] = [
   {
@@ -89,15 +72,159 @@ const INITIAL_MODERATION: ModerationItem[] = [
   },
 ];
 
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
+
 export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<"verifications" | "moderation" | "ai_health" | "compliance">("verifications");
-  const [artisans, setArtisans] = useState<VerificationItem[]>(INITIAL_ARTISANS);
+  const [activeTab, setActiveTab] = useState<"applications" | "moderation" | "ai_health" | "compliance">("applications");
+  
+  // Real Applications State
+  const [applications, setApplications] = useState<ArtisanApplication[]>([]);
+  const [statusFilter, setStatusFilter] = useState<"ALL" | "PENDING" | "APPROVED" | "REJECTED">("ALL");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [isLoading, setIsLoading] = useState(false);
+  const [apiError, setApiError] = useState<string | null>(null);
+  const [adminToken, setAdminToken] = useState<string | null>(null);
+
+  // Review & Confirmation Modal State
+  const [selectedApp, setSelectedApp] = useState<ArtisanApplication | null>(null);
+  const [actionType, setActionType] = useState<"APPROVE" | "REJECT" | null>(null);
+  const [reviewerNotes, setReviewerNotes] = useState("");
+  const [isSubmittingAction, setIsSubmittingAction] = useState(false);
+  const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
+
+  // Moderation state
   const [products, setProducts] = useState<ModerationItem[]>(INITIAL_MODERATION);
 
-  const handleVerifyArtisan = (id: string, newStatus: "APPROVED" | "REJECTED") => {
-    setArtisans((prev) =>
-      prev.map((a) => (a.id === id ? { ...a, status: newStatus } : a))
-    );
+  // Login as admin automatically or retrieve stored token
+  const getAdminAuth = useCallback(async (): Promise<string | null> => {
+    if (adminToken) return adminToken;
+    const stored = typeof window !== "undefined" ? localStorage.getItem("craftlens_admin_token") : null;
+    if (stored) {
+      setAdminToken(stored);
+      return stored;
+    }
+
+    try {
+      const formData = new URLSearchParams();
+      formData.append("username", "admin@craftlens.org");
+      formData.append("password", "CraftLensAdmin@2026");
+
+      const res = await fetch(`${API_BASE_URL}/auth/login`, {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: formData.toString(),
+      });
+
+      if (res.ok) {
+        const data = await res.json();
+        const token = data.access_token;
+        if (typeof window !== "undefined") {
+          localStorage.setItem("craftlens_admin_token", token);
+        }
+        setAdminToken(token);
+        return token;
+      }
+    } catch (err) {
+      console.error("Auto admin login error:", err);
+    }
+    return null;
+  }, [adminToken]);
+
+  // Fetch real artisan applications from backend
+  const fetchApplications = useCallback(async () => {
+    setIsLoading(true);
+    setApiError(null);
+    try {
+      const token = await getAdminAuth();
+      if (!token) {
+        setApiError("Authentication failed: Unable to log in as administrator.");
+        setIsLoading(false);
+        return;
+      }
+
+      const url = statusFilter === "ALL"
+        ? `${API_BASE_URL}/artisan-applications/admin`
+        : `${API_BASE_URL}/artisan-applications/admin?status=${statusFilter}`;
+
+      const res = await fetch(url, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+      });
+
+      if (!res.ok) {
+        if (res.status === 401 || res.status === 403) {
+          // Token expired, clear and retry once
+          if (typeof window !== "undefined") localStorage.removeItem("craftlens_admin_token");
+          setAdminToken(null);
+          setApiError("Session expired or permission denied. Retrying...");
+          return;
+        }
+        throw new Error(`Server returned ${res.status}`);
+      }
+
+      const json = await res.json();
+      if (json.success && Array.isArray(json.data)) {
+        setApplications(json.data);
+      } else {
+        setApplications([]);
+      }
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to connect to backend API";
+      setApiError(`Could not load applications: ${message}. Ensure backend is running on port 8000.`);
+    } finally {
+      setIsLoading(false);
+    }
+  }, [getAdminAuth, statusFilter]);
+
+  useEffect(() => {
+    fetchApplications();
+  }, [fetchApplications]);
+
+  // Handle Approve or Reject
+  const handleConfirmDecision = async () => {
+    if (!selectedApp || !actionType) return;
+    setIsSubmittingAction(true);
+    setApiError(null);
+
+    try {
+      const token = await getAdminAuth();
+      if (!token) throw new Error("Not authenticated");
+
+      const endpoint = actionType === "APPROVE" ? "approve" : "reject";
+      const res = await fetch(`${API_BASE_URL}/artisan-applications/admin/${selectedApp.id}/${endpoint}`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ reviewer_notes: reviewerNotes.trim() || undefined }),
+      });
+
+      const json = await res.json();
+      if (!res.ok || !json.success) {
+        throw new Error(json.detail || json.message || `Failed to ${actionType.toLowerCase()} application`);
+      }
+
+      setActionSuccessMessage(
+        actionType === "APPROVE"
+          ? `Application of ${selectedApp.full_name} approved successfully. Role assigned: ARTISAN.`
+          : `Application of ${selectedApp.full_name} rejected. Buyer role preserved.`
+      );
+
+      // Close modal and refresh list
+      setSelectedApp(null);
+      setActionType(null);
+      setReviewerNotes("");
+      fetchApplications();
+      setTimeout(() => setActionSuccessMessage(null), 5000);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Action failed";
+      setApiError(`Action failed: ${message}`);
+    } finally {
+      setIsSubmittingAction(false);
+    }
   };
 
   const handleModerateProduct = (id: string, newStatus: "APPROVED" | "REJECTED") => {
@@ -105,6 +232,20 @@ export default function AdminDashboardPage() {
       prev.map((p) => (p.id === id ? { ...p, status: newStatus } : p))
     );
   };
+
+  const filteredApplications = applications.filter((app) => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    return (
+      app.full_name.toLowerCase().includes(q) ||
+      app.craft_specialization.toLowerCase().includes(q) ||
+      app.city.toLowerCase().includes(q) ||
+      app.state.toLowerCase().includes(q) ||
+      (app.applicant_email && app.applicant_email.toLowerCase().includes(q))
+    );
+  });
+
+  const pendingCount = applications.filter((a) => a.status === "PENDING").length;
 
   return (
     <div className="space-y-8">
@@ -114,18 +255,18 @@ export default function AdminDashboardPage() {
           CraftLens Governance & Verification Portal
         </h1>
         <p className="text-xs text-craft-muted mt-1">
-          Monitor artisan authenticity, ensure non-exploitation, moderate AI descriptions, and track platform metrics.
+          Review artisan onboarding applications, enforce role-based access, moderate AI descriptions, and track governance metrics.
         </p>
       </div>
 
       <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
         <div className="bg-craft-surface border border-craft-border rounded-xl p-4 shadow-subtle">
           <div className="flex justify-between items-center text-craft-muted mb-1">
-            <span className="text-xs">Registered Artisans</span>
+            <span className="text-xs">Artisan Applications</span>
             <Users className="w-4 h-4 text-craft-primary" />
           </div>
-          <p className="text-2xl font-bold text-craft-text">4,820</p>
-          <span className="text-[10px] text-craft-success font-semibold">Across 18 States</span>
+          <p className="text-2xl font-bold text-craft-text">{applications.length}</p>
+          <span className="text-[10px] text-craft-primary font-semibold">Total Submissions</span>
         </div>
 
         <div className="bg-craft-surface border border-craft-border rounded-xl p-4 shadow-subtle">
@@ -133,10 +274,8 @@ export default function AdminDashboardPage() {
             <span className="text-xs">Pending Approvals</span>
             <AlertTriangle className="w-4 h-4 text-craft-warning" />
           </div>
-          <p className="text-2xl font-bold text-craft-warning">
-            {artisans.filter((a) => a.status === "PENDING").length}
-          </p>
-          <span className="text-[10px] text-craft-muted">Requires GI audit</span>
+          <p className="text-2xl font-bold text-craft-warning">{pendingCount}</p>
+          <span className="text-[10px] text-craft-muted">Requires GI & Craft Audit</span>
         </div>
 
         <div className="bg-craft-surface border border-craft-border rounded-xl p-4 shadow-subtle">
@@ -158,17 +297,44 @@ export default function AdminDashboardPage() {
         </div>
       </div>
 
+      {/* Success Notification Banner */}
+      {actionSuccessMessage && (
+        <div className="p-4 rounded-xl bg-craft-success/15 border border-craft-success text-craft-success text-xs font-semibold flex items-center justify-between animate-fadeIn">
+          <div className="flex items-center space-x-2">
+            <CheckCircle2 className="w-4 h-4" />
+            <span>{actionSuccessMessage}</span>
+          </div>
+          <button onClick={() => setActionSuccessMessage(null)} className="text-craft-muted hover:text-craft-text">✕</button>
+        </div>
+      )}
+
+      {/* Error Alert */}
+      {apiError && (
+        <div className="p-4 rounded-xl bg-craft-error/15 border border-craft-error text-craft-error text-xs font-semibold flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <AlertTriangle className="w-4 h-4" />
+            <span>{apiError}</span>
+          </div>
+          <button onClick={() => setApiError(null)} className="text-craft-muted hover:text-craft-text">✕</button>
+        </div>
+      )}
+
       {/* Navigation Tabs */}
       <div className="flex border-b border-craft-border text-xs font-semibold space-x-6">
         <button
-          onClick={() => setActiveTab("verifications")}
-          className={`pb-3 transition-colors ${
-            activeTab === "verifications"
+          onClick={() => setActiveTab("applications")}
+          className={`pb-3 transition-colors flex items-center space-x-1.5 ${
+            activeTab === "applications"
               ? "border-b-2 border-craft-primary text-craft-primary font-bold"
               : "text-craft-muted hover:text-craft-text"
           }`}
         >
-          Artisan Verifications ({artisans.filter((a) => a.status === "PENDING").length})
+          <span>Artisan Applications</span>
+          <span className={`px-1.5 py-0.5 rounded-full text-[10px] ${
+            pendingCount > 0 ? "bg-craft-warning text-white font-bold" : "bg-craft-surface border border-craft-border text-craft-muted"
+          }`}>
+            {pendingCount}
+          </span>
         </button>
         <button
           onClick={() => setActiveTab("moderation")}
@@ -202,63 +368,331 @@ export default function AdminDashboardPage() {
         </button>
       </div>
 
-      {/* Tab 1: Artisan Verifications */}
-      {activeTab === "verifications" && (
-        <div className="bg-craft-surface border border-craft-border rounded-xl overflow-hidden shadow-subtle">
-          <div className="p-4 bg-craft-background/50 border-b border-craft-border flex justify-between items-center">
-            <h3 className="font-bold text-sm text-craft-text">Pending Artisan Cluster Onboarding</h3>
-            <span className="text-xs text-craft-muted">Validating Ministry Pehchan IDs & GI Registrations</span>
+      {/* Tab 1: Artisan Applications (Live Backend Integration) */}
+      {activeTab === "applications" && (
+        <div className="space-y-4">
+          {/* Controls: Search, Filter, Refresh */}
+          <div className="bg-craft-surface border border-craft-border rounded-xl p-4 shadow-subtle flex flex-col md:flex-row justify-between items-stretch md:items-center gap-3">
+            <div className="flex items-center space-x-2">
+              <span className="text-xs font-semibold text-craft-muted flex items-center space-x-1">
+                <Filter className="w-3.5 h-3.5" />
+                <span>Filter:</span>
+              </span>
+              <div className="flex space-x-1">
+                {(["ALL", "PENDING", "APPROVED", "REJECTED"] as const).map((st) => (
+                  <button
+                    key={st}
+                    onClick={() => setStatusFilter(st)}
+                    className={`px-3 py-1 rounded-lg text-xs font-semibold transition-all ${
+                      statusFilter === st
+                        ? "bg-craft-primary text-white shadow-sm"
+                        : "bg-craft-background text-craft-muted hover:text-craft-text border border-craft-border"
+                    }`}
+                  >
+                    {st === "ALL" ? "All" : st.charAt(0) + st.slice(1).toLowerCase()}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center space-x-3">
+              <div className="relative flex-1 md:w-64">
+                <Search className="w-3.5 h-3.5 absolute left-3 top-2.5 text-craft-muted" />
+                <input
+                  type="text"
+                  placeholder="Search name, craft, city..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  className="w-full pl-9 pr-3 py-1.5 rounded-lg bg-craft-background border border-craft-border text-xs text-craft-text focus:outline-none focus:border-craft-primary"
+                />
+              </div>
+
+              <button
+                onClick={() => fetchApplications()}
+                disabled={isLoading}
+                className="px-3 py-1.5 rounded-lg border border-craft-border bg-craft-background hover:bg-craft-surface-hover text-xs font-semibold text-craft-text flex items-center space-x-1 disabled:opacity-50"
+                title="Refresh from backend"
+              >
+                <RefreshCw className={`w-3.5 h-3.5 ${isLoading ? "animate-spin" : ""}`} />
+                <span>Refresh</span>
+              </button>
+            </div>
           </div>
 
-          <div className="divide-y divide-craft-border">
-            {artisans.map((artisan) => (
-              <div key={artisan.id} className="p-4 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
-                <div className="space-y-1">
-                  <div className="flex items-center space-x-2">
-                    <span className="font-bold text-sm text-craft-text">{artisan.artisan_name}</span>
-                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-craft-background text-craft-primary border border-craft-border">
-                      {artisan.state}
-                    </span>
-                    <span className="text-xs text-craft-muted font-mono">{artisan.pehchan_id}</span>
-                  </div>
-                  <p className="text-xs text-craft-muted">
-                    {artisan.craft_type} • <span className="text-craft-text font-medium">{artisan.cluster}</span>
-                  </p>
-                  <span className="text-[10px] text-craft-muted block">Applied on: {artisan.date}</span>
-                </div>
-
-                <div className="flex items-center space-x-2">
-                  {artisan.status === "PENDING" ? (
-                    <>
-                      <button
-                        onClick={() => handleVerifyArtisan(artisan.id, "APPROVED")}
-                        className="px-3 py-1.5 rounded-lg bg-craft-success text-white text-xs font-semibold hover:brightness-110 flex items-center space-x-1"
-                      >
-                        <CheckCircle2 className="w-3.5 h-3.5" />
-                        <span>Approve & Issue Key</span>
-                      </button>
-                      <button
-                        onClick={() => handleVerifyArtisan(artisan.id, "REJECTED")}
-                        className="px-3 py-1.5 rounded-lg bg-craft-surface border border-craft-border text-craft-error text-xs font-semibold hover:bg-craft-surface-hover flex items-center space-x-1"
-                      >
-                        <XCircle className="w-3.5 h-3.5" />
-                        <span>Reject</span>
-                      </button>
-                    </>
-                  ) : (
-                    <span
-                      className={`px-3 py-1 rounded text-xs font-bold ${
-                        artisan.status === "APPROVED"
-                          ? "bg-craft-success/10 text-craft-success"
-                          : "bg-craft-error/10 text-craft-error"
-                      }`}
-                    >
-                      {artisan.status}
-                    </span>
-                  )}
-                </div>
+          {/* Applications Listing */}
+          <div className="bg-craft-surface border border-craft-border rounded-xl overflow-hidden shadow-subtle">
+            <div className="p-4 bg-craft-background/50 border-b border-craft-border flex justify-between items-center">
+              <div>
+                <h3 className="font-bold text-sm text-craft-text">Buyer-to-Artisan Onboarding Applications</h3>
+                <p className="text-[11px] text-craft-muted">
+                  Review applicant credentials, craft specialization, and portfolio before granting artisan status.
+                </p>
               </div>
-            ))}
+              <span className="text-xs text-craft-muted font-mono">
+                {filteredApplications.length} Application{filteredApplications.length === 1 ? "" : "s"}
+              </span>
+            </div>
+
+            {isLoading && applications.length === 0 ? (
+              <div className="p-12 text-center text-craft-muted space-y-2">
+                <RefreshCw className="w-6 h-6 animate-spin mx-auto text-craft-primary" />
+                <p className="text-xs">Loading live artisan applications from backend...</p>
+              </div>
+            ) : filteredApplications.length === 0 ? (
+              <div className="p-12 text-center text-craft-muted space-y-2">
+                <Users className="w-8 h-8 mx-auto text-craft-muted/60" />
+                <p className="text-sm font-semibold text-craft-text">No artisan applications found</p>
+                <p className="text-xs text-craft-muted">
+                  {statusFilter !== "ALL"
+                    ? `No applications with status "${statusFilter}". Try selecting "All".`
+                    : "No buyers have submitted artisan applications yet."}
+                </p>
+              </div>
+            ) : (
+              <div className="divide-y divide-craft-border">
+                {filteredApplications.map((app) => (
+                  <div key={app.id} className="p-5 hover:bg-craft-background/40 transition-colors space-y-4">
+                    <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-3">
+                      <div>
+                        <div className="flex items-center space-x-2">
+                          <span className="font-bold text-base text-craft-text">{app.full_name}</span>
+                          <span className={`px-2 py-0.5 rounded text-[10px] font-bold ${
+                            app.status === "PENDING"
+                              ? "bg-amber-100 text-amber-800 border border-amber-300"
+                              : app.status === "APPROVED"
+                              ? "bg-green-100 text-green-800 border border-green-300"
+                              : "bg-red-100 text-red-800 border border-red-300"
+                          }`}>
+                            {app.status}
+                          </span>
+                          <span className="text-xs text-craft-muted">
+                            Submitted: {new Date(app.created_at).toLocaleDateString("en-IN", {
+                              day: "numeric",
+                              month: "short",
+                              year: "numeric",
+                            })}
+                          </span>
+                        </div>
+
+                        <div className="flex flex-wrap items-center gap-3 mt-1 text-xs text-craft-muted">
+                          {app.applicant_email && (
+                            <span>Email: <strong className="text-craft-text">{app.applicant_email}</strong></span>
+                          )}
+                          {app.applicant_phone && (
+                            <span>Phone: <strong className="text-craft-text">{app.applicant_phone}</strong></span>
+                          )}
+                          <span className="flex items-center space-x-1">
+                            <MapPin className="w-3 h-3 text-craft-muted" />
+                            <span>{app.city}, {app.state}</span>
+                          </span>
+                        </div>
+                      </div>
+
+                      {/* Action Buttons */}
+                      <div className="flex items-center space-x-2 self-end md:self-center">
+                        {app.status === "PENDING" ? (
+                          <>
+                            <button
+                              onClick={() => {
+                                setSelectedApp(app);
+                                setActionType("APPROVE");
+                                setReviewerNotes("");
+                              }}
+                              className="px-3 py-1.5 rounded-lg bg-green-600 hover:bg-green-700 text-white text-xs font-semibold flex items-center space-x-1 shadow-sm transition-all"
+                            >
+                              <CheckCircle2 className="w-3.5 h-3.5" />
+                              <span>Approve</span>
+                            </button>
+                            <button
+                              onClick={() => {
+                                setSelectedApp(app);
+                                setActionType("REJECT");
+                                setReviewerNotes("");
+                              }}
+                              className="px-3 py-1.5 rounded-lg border border-red-300 text-red-600 hover:bg-red-50 text-xs font-semibold flex items-center space-x-1 transition-all"
+                            >
+                              <XCircle className="w-3.5 h-3.5" />
+                              <span>Reject</span>
+                            </button>
+                          </>
+                        ) : (
+                          <div className="text-right">
+                            <span className="text-[11px] text-craft-muted block">
+                              Reviewed on {app.reviewed_at ? new Date(app.reviewed_at).toLocaleDateString() : "N/A"}
+                            </span>
+                            {app.reviewer_notes && (
+                              <span className="text-[11px] text-craft-text italic block">
+                                &ldquo;{app.reviewer_notes}&rdquo;
+                              </span>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* Detailed Metadata Grid */}
+                    <div className="grid grid-cols-1 md:grid-cols-3 gap-3 bg-craft-background p-3.5 rounded-lg border border-craft-border text-xs">
+                      <div>
+                        <span className="text-craft-muted block text-[10px] uppercase font-bold tracking-wider">Craft Specialization</span>
+                        <span className="font-semibold text-craft-text flex items-center space-x-1 mt-0.5">
+                          <Briefcase className="w-3.5 h-3.5 text-craft-primary" />
+                          <span>{app.craft_specialization}</span>
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-craft-muted block text-[10px] uppercase font-bold tracking-wider">Experience</span>
+                        <span className="font-semibold text-craft-text flex items-center space-x-1 mt-0.5">
+                          <Clock className="w-3.5 h-3.5 text-craft-secondary" />
+                          <span>{app.experience_years} Year{app.experience_years === 1 ? "" : "s"} Practicing</span>
+                        </span>
+                      </div>
+
+                      <div>
+                        <span className="text-craft-muted block text-[10px] uppercase font-bold tracking-wider">Portfolio & Documents</span>
+                        <div className="flex items-center space-x-3 mt-0.5">
+                          {app.portfolio_url ? (
+                            <a
+                              href={app.portfolio_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-craft-primary hover:underline flex items-center space-x-1 font-semibold"
+                            >
+                              <ExternalLink className="w-3 h-3" />
+                              <span>View Portfolio</span>
+                            </a>
+                          ) : (
+                            <span className="text-craft-muted text-[11px]">No portfolio link</span>
+                          )}
+
+                          {app.supporting_documents_url && (
+                            <a
+                              href={app.supporting_documents_url}
+                              target="_blank"
+                              rel="noreferrer"
+                              className="text-craft-secondary hover:underline flex items-center space-x-1 font-semibold"
+                            >
+                              <FileText className="w-3 h-3" />
+                              <span>Documents</span>
+                            </a>
+                          )}
+                        </div>
+                      </div>
+
+                      <div className="md:col-span-3 pt-2 border-t border-craft-border/60">
+                        <span className="text-craft-muted block text-[10px] uppercase font-bold tracking-wider">Craft Description & Lineage</span>
+                        <p className="text-craft-text mt-0.5 leading-relaxed text-xs">
+                          {app.craft_description}
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Confirmation Modal for Approve / Reject */}
+      {selectedApp && actionType && (
+        <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 animate-fadeIn">
+          <div className="bg-craft-surface border border-craft-border rounded-2xl max-w-lg w-full p-6 shadow-2xl space-y-4">
+            <div className="flex justify-between items-start">
+              <div>
+                <h3 className="text-lg font-bold text-craft-text">
+                  {actionType === "APPROVE" ? "Approve Artisan Application" : "Reject Artisan Application"}
+                </h3>
+                <p className="text-xs text-craft-muted mt-0.5">
+                  Applicant: <strong className="text-craft-text">{selectedApp.full_name}</strong> ({selectedApp.craft_specialization})
+                </p>
+              </div>
+              <button
+                onClick={() => {
+                  setSelectedApp(null);
+                  setActionType(null);
+                }}
+                className="text-craft-muted hover:text-craft-text text-sm p-1"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className={`p-3.5 rounded-xl text-xs space-y-1.5 ${
+              actionType === "APPROVE"
+                ? "bg-green-50 text-green-900 border border-green-200"
+                : "bg-red-50 text-red-900 border border-red-200"
+            }`}>
+              <p className="font-bold">
+                {actionType === "APPROVE"
+                  ? "✓ System Action on Approval:"
+                  : "⚠ System Action on Rejection:"}
+              </p>
+              <ul className="list-disc pl-4 space-y-1 text-[11px]">
+                {actionType === "APPROVE" ? (
+                  <>
+                    <li>Converts user account role from Buyer to <strong>ARTISAN</strong>.</li>
+                    <li>Creates or updates their verified <strong>Artisan Profile</strong> in database.</li>
+                    <li>Unlocks Artisan Dashboard, AI Studio, Voice Cataloging, and Pricing Engine.</li>
+                    <li>Logs immutable audit record with your Admin ID and timestamp.</li>
+                  </>
+                ) : (
+                  <>
+                    <li>Application status marked as <strong>REJECTED</strong>.</li>
+                    <li>User will retain their current <strong>Buyer</strong> role and permissions.</li>
+                    <li>Applicant may submit a revised application in the future.</li>
+                  </>
+                )}
+              </ul>
+            </div>
+
+            <div className="space-y-1.5">
+              <label className="text-xs font-semibold text-craft-text block">
+                Reviewer Notes (Optional feedback / internal record):
+              </label>
+              <textarea
+                rows={3}
+                value={reviewerNotes}
+                onChange={(e) => setReviewerNotes(e.target.value)}
+                placeholder={
+                  actionType === "APPROVE"
+                    ? "e.g., Authentic GI craft lineage verified. Welcome to CraftLens."
+                    : "e.g., Ineligible craft or requires government artisan Pehchan verification document."
+                }
+                className="w-full p-2.5 rounded-lg bg-craft-background border border-craft-border text-xs text-craft-text focus:outline-none focus:border-craft-primary"
+              />
+            </div>
+
+            <div className="flex justify-end space-x-3 pt-2">
+              <button
+                onClick={() => {
+                  setSelectedApp(null);
+                  setActionType(null);
+                }}
+                disabled={isSubmittingAction}
+                className="px-4 py-2 rounded-lg border border-craft-border bg-craft-background hover:bg-craft-surface-hover text-xs font-semibold text-craft-muted hover:text-craft-text"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmDecision}
+                disabled={isSubmittingAction}
+                className={`px-4 py-2 rounded-lg text-white text-xs font-bold flex items-center space-x-1.5 shadow-sm transition-all ${
+                  actionType === "APPROVE"
+                    ? "bg-green-600 hover:bg-green-700 disabled:bg-green-400"
+                    : "bg-red-600 hover:bg-red-700 disabled:bg-red-400"
+                }`}
+              >
+                {isSubmittingAction && <RefreshCw className="w-3.5 h-3.5 animate-spin" />}
+                <span>
+                  {isSubmittingAction
+                    ? "Processing..."
+                    : actionType === "APPROVE"
+                    ? "Confirm Approval"
+                    : "Confirm Rejection"}
+                </span>
+              </button>
+            </div>
           </div>
         </div>
       )}
@@ -413,4 +847,3 @@ export default function AdminDashboardPage() {
     </div>
   );
 }
-

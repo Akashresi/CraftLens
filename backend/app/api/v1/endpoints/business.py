@@ -30,6 +30,7 @@ def get_dashboard_analytics(
     current_user: User = Depends(require_role("ARTISAN")),
 ):
     """Retrieves real-time sales, revenue, profit, pending orders, and inventory metrics."""
+    require_role("ARTISAN")(current_user)
     profile = db.query(ArtisanProfile).filter(ArtisanProfile.user_id == current_user.id).first()
     if not profile:
         raise HTTPException(status_code=404, detail="Artisan profile not found")

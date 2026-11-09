@@ -1,6 +1,7 @@
 from app.db.base import Base
 from app.models.user import User, Role, Permission, user_roles, role_permissions, AuditLog, ConsentRecord
 from app.models.artisan import ArtisanGroup, ArtisanProfile, ArtisanVerification, ArtisanStory
+from app.models.artisan_application import ArtisanApplication
 from app.models.buyer import Buyer, BuyerBusinessProfile
 from app.models.category import Category, CraftOrigin
 from app.models.product import Product, ProductVariant, ProductImage, ProductTranslation, GeneratedDescription
@@ -26,6 +27,7 @@ __all__ = [
     "ArtisanProfile",
     "ArtisanVerification",
     "ArtisanStory",
+    "ArtisanApplication",
     "Buyer",
     "BuyerBusinessProfile",
     "Category",

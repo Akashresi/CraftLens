@@ -16,11 +16,12 @@ router = APIRouter()
 def calculate_price_breakdown(
     pricing_in: PricingCalculateIn,
     db: Session = Depends(get_db),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("ARTISAN")),
 ):
     """Calculates production cost, fair artisan wage, retail/wholesale/export price tiers,
     and returns a transparent explainable recommendation.
     """
+    require_role("ARTISAN")(current_user)
     result = compute_craft_pricing(
         material_cost=pricing_in.material_cost,
         labor_hours=pricing_in.labor_hours,
@@ -49,6 +50,7 @@ def apply_pricing_to_product(
     """Applies artisan approved retail and wholesale prices to product,
     creates/updates the ProductVariant and Inventory records.
     """
+    require_role("ARTISAN")(current_user)
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")

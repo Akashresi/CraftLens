@@ -51,27 +51,25 @@ def test_seeded_data(db):
 
 
 def test_user_registration_and_profile_flow(db):
-    """Verify registration endpoint, Argon2id storage, and automatic ArtisanProfile creation."""
+    """Verify registration defaults to RETAIL_BUYER, Argon2id storage, and profile access."""
     register_in = UserRegister(
-        email="ramu.weaver@craftlens.org",
+        email="ramu.buyer@craftlens.org",
         phone="+919841234567",
         password="WeaverPassword#123",
-        full_name="Ramu Weaver",
-        role_code="ARTISAN",
+        full_name="Ramu Buyer",
         preferred_language="ta"
     )
     reg_response = register_user(user_in=register_in, db=db)
     assert reg_response.success is True
     user_data = reg_response.data
-    assert user_data.email == "ramu.weaver@craftlens.org"
-    assert user_data.full_name == "Ramu Weaver"
-    assert any(r.code == "ARTISAN" for r in user_data.roles)
+    assert user_data.email == "ramu.buyer@craftlens.org"
+    assert user_data.full_name == "Ramu Buyer"
+    assert any(r.code == "RETAIL_BUYER" for r in user_data.roles)
 
-    # Verify artisan profile created in database
-    created_user = db.query(User).filter(User.email == "ramu.weaver@craftlens.org").first()
+    # Verify buyer profile created in database
+    created_user = db.query(User).filter(User.email == "ramu.buyer@craftlens.org").first()
     assert created_user is not None
-    assert created_user.artisan_profile is not None
-    assert created_user.artisan_profile.craft_specialization == "General Traditional Handicrafts"
+    assert created_user.buyer_profile is not None
 
     # Test get profile
     profile_response = get_current_user_profile(current_user=created_user)

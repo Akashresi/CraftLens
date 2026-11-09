@@ -9,18 +9,15 @@ from app.api.v1.endpoints.heritage import record_craft_provenance, generate_prod
 
 
 def test_heritage_provenance_and_qr_verification_flow(db):
+    from tests.conftest import create_test_artisan
     # 1. Register Master Artisan
-    artisan_reg = register_user(
-        user_in=UserRegister(
-            email="heritage.master@craftlens.org",
-            password="HeritagePass#123",
-            full_name="Padma Shri Artisan",
-            role_code="ARTISAN",
-            preferred_language="hi"
-        ),
-        db=db
+    artisan_user = create_test_artisan(
+        db=db,
+        email="heritage.master@craftlens.org",
+        password="HeritagePass#123",
+        full_name="Padma Shri Artisan",
+        preferred_language="hi"
     )
-    artisan_user = db.query(User).filter(User.email == "heritage.master@craftlens.org").first()
     artisan_user.artisan_profile.verification_level = "GOVT_ID_VERIFIED"
     db.commit()
 

@@ -16,18 +16,15 @@ from app.api.v1.endpoints.business import (
 
 
 def test_business_dashboard_and_ai_assistant_flow(db):
+    from tests.conftest import create_test_artisan
     # 1. Register Artisan
-    artisan_reg = register_user(
-        user_in=UserRegister(
-            email="biz.artisan@craftlens.org",
-            password="ArtisanPass#123",
-            full_name="Kalaivani Saree Studio",
-            role_code="ARTISAN",
-            preferred_language="ta"
-        ),
-        db=db
+    user = create_test_artisan(
+        db=db,
+        email="biz.artisan@craftlens.org",
+        password="ArtisanPass#123",
+        full_name="Kalaivani Saree Studio",
+        preferred_language="ta"
     )
-    user = db.query(User).filter(User.email == "biz.artisan@craftlens.org").first()
 
     # 2. Add product with low inventory (2 units on hand, threshold 3)
     prod_res = apply_catalog_to_product(

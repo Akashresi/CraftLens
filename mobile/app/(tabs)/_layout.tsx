@@ -1,9 +1,28 @@
-import React from "react";
-import { Tabs } from "expo-router";
+import React, { useEffect } from "react";
+import { Tabs, useRouter } from "expo-router";
 import { Colors } from "../../src/constants/theme";
 import { Home, Camera, Mic, Calculator, ShoppingBag, User } from "lucide-react-native";
+import { useAuthStore } from "../../src/store/authStore";
 
 export default function TabLayout() {
+  const router = useRouter();
+  const { user, isAuthenticated } = useAuthStore();
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      router.replace("/login");
+      return;
+    }
+
+    // Role-based access control: Only ARTISAN may enter this tab suite
+    if (user && user.role !== "ARTISAN") {
+      router.replace("/(buyer-tabs)/marketplace");
+    }
+  }, [isAuthenticated, user, router]);
+
+  if (!isAuthenticated || user?.role !== "ARTISAN") {
+    return null;
+  }
   return (
     <Tabs
       screenOptions={{

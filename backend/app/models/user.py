@@ -45,6 +45,7 @@ class User(Base):
     roles: Mapped[list["Role"]] = relationship("Role", secondary=user_roles, back_populates="users", lazy="joined")
     artisan_profile: Mapped["ArtisanProfile"] = relationship("ArtisanProfile", back_populates="user", uselist=False)
     buyer_profile: Mapped["Buyer"] = relationship("Buyer", back_populates="user", uselist=False)
+    artisan_applications: Mapped[list["ArtisanApplication"]] = relationship("ArtisanApplication", foreign_keys="ArtisanApplication.user_id", back_populates="user")
     audit_logs: Mapped[list["AuditLog"]] = relationship("AuditLog", back_populates="user")
     consent_records: Mapped[list["ConsentRecord"]] = relationship("ConsentRecord", back_populates="user")
 

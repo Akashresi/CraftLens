@@ -10,7 +10,7 @@ from app.db.base import Base
 from app.db.session import engine, SessionLocal
 from app.core.security import get_password_hash
 from app.models import (
-    Role, User, Category, CraftOrigin, ArtisanProfile
+    Role, User, Category, CraftOrigin, ArtisanProfile, ArtisanApplication
 )
 
 

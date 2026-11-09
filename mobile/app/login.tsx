@@ -42,19 +42,34 @@ export default function MobileLoginScreen() {
       });
       const profileData = await profileRes.json();
 
+      const userRole = profileData.data.roles?.[0]?.code || "RETAIL_BUYER";
+
       setAuth(
         {
           id: profileData.data.id,
           email: profileData.data.email,
           full_name: profileData.data.full_name,
+          phone: profileData.data.phone,
           preferred_language: profileData.data.preferred_language,
           is_verified: profileData.data.is_verified,
-          role: profileData.data.roles[0]?.code || "ARTISAN",
+          role: userRole,
         },
         data.access_token
       );
 
-      router.replace("/(tabs)/home");
+      // Secure role-based redirection
+      if (userRole === "ARTISAN") {
+        router.replace("/(tabs)");
+      } else if (userRole === "ADMIN") {
+        Alert.alert(
+          "Admin Account Detected",
+          "You are signed in as System Administrator. Please use the Admin Web Portal on port 3001 for governance."
+        );
+        router.replace("/(tabs)");
+      } else {
+        // RETAIL_BUYER or WHOLESALE_BUYER
+        router.replace("/(buyer-tabs)/marketplace");
+      }
     } catch (err: any) {
       Alert.alert("Network Error", "Unable to connect to CraftLens backend server.");
     } finally {
@@ -64,8 +79,8 @@ export default function MobileLoginScreen() {
 
   return (
     <View style={styles.container}>
-      <Text style={styles.title}>Sign In to Studio</Text>
-      <Text style={styles.subtitle}>Enter your email or phone to access your artisan workspace</Text>
+      <Text style={styles.title}>Sign In to CraftLens</Text>
+      <Text style={styles.subtitle}>Enter your email and password to access your account</Text>
 
       <View style={styles.formGroup}>
         <Text style={styles.label}>Email Address</Text>

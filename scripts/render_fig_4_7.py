@@ -533,3 +533,4 @@ print("Return code:", res.returncode)
 print("File exists:", os.path.exists(out_img))
 if os.path.exists(out_img):
     print("File size:", os.path.getsize(out_img), "bytes")
+

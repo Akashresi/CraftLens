@@ -14,17 +14,14 @@ from app.api.v1.endpoints.b2b import (
 
 
 def test_b2b_rfq_and_purchase_order_flow(db):
+    from tests.conftest import create_test_artisan
     # 1. Register Artisan
-    artisan_reg = register_user(
-        user_in=UserRegister(
-            email="b2b.artisan@craftlens.org",
-            password="ArtisanPass#123",
-            full_name="Brass Metal Artisan",
-            role_code="ARTISAN"
-        ),
-        db=db
+    artisan_user = create_test_artisan(
+        db=db,
+        email="b2b.artisan@craftlens.org",
+        password="ArtisanPass#123",
+        full_name="Brass Metal Artisan",
     )
-    artisan_user = db.query(User).filter(User.email == "b2b.artisan@craftlens.org").first()
 
     # Create craft product
     prod_res = apply_catalog_to_product(

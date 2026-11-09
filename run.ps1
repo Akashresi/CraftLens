@@ -9,3 +9,4 @@ if ($Admin) { $argsList += "--admin" }
 if ($Mobile) { $argsList += "--mobile" }
 
 python "$PSScriptRoot\run.py" @argsList
+

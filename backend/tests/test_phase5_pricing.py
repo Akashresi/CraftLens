@@ -32,16 +32,13 @@ def test_craft_pricing_calculation():
 
 
 def test_apply_pricing_to_product_flow(db):
-    reg = register_user(
-        user_in=UserRegister(
-            email="pricing.artisan@craftlens.org",
-            password="ArtisanPass#123",
-            full_name="Master Weaving Artisan",
-            role_code="ARTISAN"
-        ),
-        db=db
+    from tests.conftest import create_test_artisan
+    user = create_test_artisan(
+        db=db,
+        email="pricing.artisan@craftlens.org",
+        password="ArtisanPass#123",
+        full_name="Master Weaving Artisan",
     )
-    user = db.query(User).filter(User.email == "pricing.artisan@craftlens.org").first()
 
     # Create draft product
     prod_res = apply_catalog_to_product(

@@ -27,9 +27,9 @@ export default function MobileRegisterScreen() {
         body: JSON.stringify({
           full_name: fullName,
           email,
-          phone,
+          phone: phone || undefined,
           password,
-          role_code: "ARTISAN",
+          role_code: "RETAIL_BUYER",
           preferred_language: language || "ta",
         }),
       });
@@ -58,14 +58,16 @@ export default function MobileRegisterScreen() {
           id: registerData.data.id,
           email: registerData.data.email,
           full_name: registerData.data.full_name,
+          phone: registerData.data.phone,
           preferred_language: registerData.data.preferred_language,
           is_verified: false,
-          role: "ARTISAN",
+          role: "RETAIL_BUYER",
         },
         loginData.access_token
       );
 
-      router.replace("/onboarding");
+      // Redirect immediately to Buyer Marketplace
+      router.replace("/(buyer-tabs)/marketplace");
     } catch (err: any) {
       Alert.alert("Connection Failed", "Unable to reach server. Please check internet connection.");
     } finally {
@@ -75,8 +77,8 @@ export default function MobileRegisterScreen() {
 
   return (
     <ScrollView style={styles.container} contentContainerStyle={styles.content}>
-      <Text style={styles.title}>Artisan Registration</Text>
-      <Text style={styles.subtitle}>Join India&apos;s digital craft network</Text>
+      <Text style={styles.title}>Create Account</Text>
+      <Text style={styles.subtitle}>Discover & support authentic Indian heritage crafts</Text>
 
       <View style={styles.formGroup}>
         <Text style={styles.label}>Full Name / பெயர்</Text>

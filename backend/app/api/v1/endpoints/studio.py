@@ -27,9 +27,10 @@ os.makedirs(f"{UPLOAD_BASE}/processed", exist_ok=True)
 @router.post("/analyze", response_model=APIResponse[QualityAnalysisOut])
 def analyze_photo(
     file: UploadFile = File(...),
-    current_user: User = Depends(get_current_active_user),
+    current_user: User = Depends(require_role("ARTISAN")),
 ):
     """Analyzes photo quality, blur (Laplacian variance), and exposure before catalog creation."""
+    require_role("ARTISAN")(current_user)
     contents = file.file.read()
     if len(contents) == 0:
         raise HTTPException(status_code=400, detail="Uploaded file is empty")
@@ -52,6 +53,7 @@ def process_product_photo(
     """Processes product image through studio pipeline: quality analysis, background removal,
     lighting correction, pure white drop shadow generation, and lifestyle staging.
     """
+    require_role("ARTISAN")(current_user)
     start_time = time.time()
     raw_bytes = file.file.read()
     if len(raw_bytes) == 0:

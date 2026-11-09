@@ -24,10 +24,19 @@ def register_user(user_in: UserRegister, db: Session = Depends(get_db)):
             detail="An account with this email address already exists",
         )
 
-    # Resolve assigned role
-    role = db.query(Role).filter(Role.code == user_in.role_code.upper()).first()
+    # Resolve assigned role - public registration is strictly for buyers
+    requested_role = (user_in.role_code or "RETAIL_BUYER").upper().strip()
+    if requested_role in ["ARTISAN", "ADMIN"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Selecting ARTISAN or ADMIN role during registration is not permitted. Please register as a buyer and apply to become an artisan in your profile.",
+        )
+    if requested_role != "WHOLESALE_BUYER":
+        requested_role = "RETAIL_BUYER"
+
+    role = db.query(Role).filter(Role.code == requested_role).first()
     if not role:
-        role = db.query(Role).filter(Role.code == "ARTISAN").first()
+        role = db.query(Role).filter(Role.code == "RETAIL_BUYER").first()
 
     new_user = User(
         email=user_in.email,
@@ -43,21 +52,12 @@ def register_user(user_in: UserRegister, db: Session = Depends(get_db)):
     db.add(new_user)
     db.flush()
 
-    # Automatically create profile based on primary role
-    if role and role.code == "ARTISAN":
-        artisan_profile = ArtisanProfile(
-            user_id=new_user.id,
-            craft_specialization="General Traditional Handicrafts",
-            experience_years=1,
-            verification_level="UNVERIFIED",
-        )
-        db.add(artisan_profile)
-    elif role and role.code in ["RETAIL_BUYER", "WHOLESALE_BUYER"]:
-        buyer_profile = Buyer(
-            user_id=new_user.id,
-            buyer_type="WHOLESALE" if role.code == "WHOLESALE_BUYER" else "RETAIL",
-        )
-        db.add(buyer_profile)
+    # Automatically create buyer profile
+    buyer_profile = Buyer(
+        user_id=new_user.id,
+        buyer_type="WHOLESALE" if role and role.code == "WHOLESALE_BUYER" else "RETAIL",
+    )
+    db.add(buyer_profile)
 
     db.commit()
     db.refresh(new_user)

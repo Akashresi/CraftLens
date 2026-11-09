@@ -18,16 +18,13 @@ def test_marketplace_discovery_and_checkout_flow(db):
     assert len(cat_res.data) >= 6
 
     # 2. Register artisan & create product
-    artisan_reg = register_user(
-        user_in=UserRegister(
-            email="market.artisan@craftlens.org",
-            password="MarketPass#123",
-            full_name="Woodcraft Master",
-            role_code="ARTISAN"
-        ),
-        db=db
+    from tests.conftest import create_test_artisan
+    artisan_user = create_test_artisan(
+        db=db,
+        email="market.artisan@craftlens.org",
+        password="MarketPass#123",
+        full_name="Woodcraft Master",
     )
-    artisan_user = db.query(User).filter(User.email == "market.artisan@craftlens.org").first()
 
     prod_res = apply_catalog_to_product(
         payload=ApplyCatalogIn(

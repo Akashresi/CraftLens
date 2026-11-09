@@ -70,16 +70,13 @@ def test_lifestyle_background_generation():
 
 
 def test_studio_process_endpoint(db):
-    reg = register_user(
-        user_in=UserRegister(
-            email="studio.artisan@craftlens.org",
-            password="ArtisanStudio#2026",
-            full_name="Master Craftsman",
-            role_code="ARTISAN"
-        ),
-        db=db
+    from tests.conftest import create_test_artisan
+    user = create_test_artisan(
+        db=db,
+        email="studio.artisan@craftlens.org",
+        full_name="Master Craftsman",
+        password="ArtisanStudio#2026",
     )
-    user = db.query(User).filter(User.email == "studio.artisan@craftlens.org").first()
     
     img_bytes = create_sample_craft_image_bytes()
     upload = UploadFile(

@@ -33,17 +33,14 @@ def test_hindi_voice_catalog_generation():
 
 
 def test_apply_catalog_persists_multilingual_entities(db):
-    reg = register_user(
-        user_in=UserRegister(
-            email="voice.weaver@craftlens.org",
-            password="VoiceWeaver#2026",
-            full_name="Govindhan Weaver",
-            role_code="ARTISAN",
-            preferred_language="ta"
-        ),
-        db=db
+    from tests.conftest import create_test_artisan
+    user = create_test_artisan(
+        db=db,
+        email="voice.weaver@craftlens.org",
+        password="VoiceWeaver#2026",
+        full_name="Govindhan Weaver",
+        preferred_language="ta"
     )
-    user = db.query(User).filter(User.email == "voice.weaver@craftlens.org").first()
 
     payload = ApplyCatalogIn(
         title="Handcrafted Pure Silk Wedding Saree",

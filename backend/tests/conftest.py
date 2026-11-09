@@ -39,3 +39,33 @@ def db():
         yield db
     finally:
         db.close()
+
+
+def create_test_artisan(db, email: str, full_name: str, password: str = "ArtisanPass#123", preferred_language: str = "ta"):
+    from app.models import Role, User, ArtisanProfile
+    from app.core.security import get_password_hash
+    artisan_role = db.query(Role).filter(Role.code == "ARTISAN").first()
+    user = User(
+        email=email,
+        full_name=full_name,
+        hashed_password=get_password_hash(password),
+        preferred_language=preferred_language,
+        is_active=True,
+        is_verified=True,
+    )
+    if artisan_role:
+        user.roles.append(artisan_role)
+    db.add(user)
+    db.flush()
+    profile = ArtisanProfile(
+        user_id=user.id,
+        craft_specialization="General Traditional Handicrafts",
+        city="Varanasi",
+        state="Uttar Pradesh",
+        experience_years=10,
+    )
+    db.add(profile)
+    db.commit()
+    db.refresh(user)
+    return user
+

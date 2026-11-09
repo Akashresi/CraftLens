@@ -16,7 +16,7 @@ class UserRegister(BaseModel):
     phone: Optional[str] = None
     password: str = Field(..., min_length=6)
     full_name: str
-    role_code: str = Field(default="ARTISAN", description="ARTISAN, RETAIL_BUYER, or WHOLESALE_BUYER")
+    role_code: str = Field(default="RETAIL_BUYER", description="RETAIL_BUYER or WHOLESALE_BUYER (ARTISAN and ADMIN cannot be chosen at registration)")
     preferred_language: str = Field(default="ta", description="ta, hi, en, te, kn, ml")
 
 

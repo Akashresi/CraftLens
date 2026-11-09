@@ -10,18 +10,15 @@ from app.api.v1.endpoints.buyers import get_my_buyer_profile, update_my_buyer_pr
 
 
 def test_artisan_profile_and_verification_flow(db):
-    # 1. Register new artisan
-    reg = register_user(
-        user_in=UserRegister(
-            email="lakshmi.potter@craftlens.org",
-            password="TerracottaCraft#2026",
-            full_name="Lakshmi Potter",
-            role_code="ARTISAN",
-            preferred_language="hi"
-        ),
-        db=db
+    from tests.conftest import create_test_artisan
+    # 1. Create artisan
+    user = create_test_artisan(
+        db=db,
+        email="lakshmi.potter@craftlens.org",
+        full_name="Lakshmi Potter",
+        password="TerracottaCraft#2026",
+        preferred_language="hi"
     )
-    user = db.query(User).filter(User.email == "lakshmi.potter@craftlens.org").first()
     assert user is not None
 
     # 2. Update artisan profile
