@@ -1,0 +1,29 @@
+{
+  "name": "craftlens-monorepo",
+  "version": "2.0.0",
+  "private": true,
+  "description": "CraftLens 2.0 - Complete AI-Powered Artisan Business Management and Global Marketplace Platform",
+  "scripts": {
+    "start": "python run.py",
+    "dev": "python run.py",
+    "dev:all": "python run.py --admin --mobile",
+    "backend": "cd backend && python -m uvicorn app.main:app --host 127.0.0.1 --port 8000 --reload",
+    "web": "cd buyer-web && pnpm dev",
+    "admin": "cd admin-web && pnpm dev -- -p 3001",
+    "mobile": "cd mobile && npx expo start",
+    "test": "pytest backend/tests -v",
+    "seed": "python backend/app/db/init_db.py"
+  },
+  "keywords": [
+    "artisan",
+    "handicrafts",
+    "fastapi",
+    "nextjs",
+    "react-native",
+    "ai",
+    "mosje",
+    "sih26090"
+  ],
+  "author": "CraftLens Team",
+  "license": "MIT"
+}
