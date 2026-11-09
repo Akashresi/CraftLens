@@ -49,3 +49,4 @@ def downgrade() -> None:
     op.drop_index(op.f('ix_artisan_applications_status'), table_name='artisan_applications')
     op.drop_index(op.f('ix_artisan_applications_user_id'), table_name='artisan_applications')
     op.drop_table('artisan_applications')
+

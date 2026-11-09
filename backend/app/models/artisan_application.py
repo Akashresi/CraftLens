@@ -32,3 +32,4 @@ class ArtisanApplication(Base):
 
     user: Mapped["User"] = relationship("User", foreign_keys=[user_id], back_populates="artisan_applications")
     reviewer: Mapped[Optional["User"]] = relationship("User", foreign_keys=[reviewed_by_user_id])
+

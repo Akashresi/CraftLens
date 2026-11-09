@@ -130,7 +130,7 @@ def list_artisan_applications_admin(
     """Admin endpoint to list and filter all artisan applications."""
     require_role("ADMIN")(current_user)
     query = db.query(ArtisanApplication)
-    if status_filter:
+    if status_filter and isinstance(status_filter, str):
         query = query.filter(ArtisanApplication.status == status_filter.upper())
     
     applications = query.order_by(ArtisanApplication.created_at.desc()).all()
@@ -297,3 +297,4 @@ def reject_artisan_application(
         message="Artisan application has been rejected. Buyer role preserved.",
         data=_format_application_out(app_record),
     )
+

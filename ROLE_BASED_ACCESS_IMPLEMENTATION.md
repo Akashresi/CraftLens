@@ -283,3 +283,4 @@ npm run dev
 | Admin | `admin@craftlens.org` | `CraftLensAdmin@2026` |
 | Demonstration Artisan | `artisan@craftlens.org` | `Artisan@2026` |
 | New Buyers | Self-registered via app | User defined |
+
