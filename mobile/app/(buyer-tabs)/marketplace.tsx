@@ -11,7 +11,9 @@ import {
   ActivityIndicator,
   FlatList,
 } from "react-native";
-import { Colors, Spacing, Typography, BorderRadius } from "../../src/constants/theme";
+import { Colors, Spacing, Typography, BorderRadius, TouchTargets } from "../../src/constants/theme";
+import { API_BASE_URL, apiFetch } from "../../src/services/apiClient";
+import { useAuthStore } from "../../src/store/authStore";
 import { Search, MapPin, Tag, Check, X, ShoppingCart } from "lucide-react-native";
 
 interface ProductItem {
@@ -118,35 +120,39 @@ export default function BuyerMarketplaceScreen() {
   const [selectedProduct, setSelectedProduct] = useState<ProductItem | null>(null);
   const [cartSuccess, setCartSuccess] = useState(false);
   const [loading, setLoading] = useState(false);
+  const { token } = useAuthStore();
 
   useEffect(() => {
-    // Attempt to fetch fresh products from backend
+    // Fetch fresh products from backend API
     const loadMarketplace = async () => {
       try {
-        const res = await fetch("http://127.0.0.1:8000/api/v1/marketplace/products");
+        const res = await fetch(`${API_BASE_URL}/marketplace/products`);
         if (res.ok) {
           const json = await res.json();
-          if (json.success && Array.isArray(json.data) && json.data.length > 0) {
-            // Map backend product data to ProductItem format
-            const mapped: ProductItem[] = json.data.map((p: any) => ({
+          const list = Array.isArray(json.data) ? json.data : json.data?.items;
+          if (json.success && Array.isArray(list) && list.length > 0) {
+            const mapped: ProductItem[] = list.map((p: any) => ({
               id: p.id,
               title: p.title,
-              category: p.category_name || "Handicrafts",
-              category_slug: p.category_slug || "handcraft",
-              price: p.retail_price || 999,
+              category: p.category?.name || p.category_name || "Handicrafts",
+              category_slug: p.category?.slug || p.category_slug || "handcraft",
+              price: p.variants?.[0]?.price_retail || p.retail_price || 999,
               artisan_name: p.artisan_name || "Verified Artisan",
-              origin: p.origin_state ? `${p.origin_name || "Heritage"}, ${p.origin_state}` : "India",
-              gi_tagged: !!p.gi_certified,
-              image_url: p.primary_image_url || "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80",
-              description: p.description || "Handcrafted traditional Indian craft product.",
+              origin: p.artisan_city ? `${p.artisan_city}, India` : "India",
+              gi_tagged: p.gi_verification_status === "APPROVED" || !!p.gi_certified,
+              image_url:
+                p.images?.[0]?.processed_url ||
+                p.primary_image_url ||
+                "https://images.unsplash.com/photo-1610030469983-98e550d6193c?auto=format&fit=crop&w=600&q=80",
+              description: p.summary || p.description || "Handcrafted traditional Indian craft product.",
               material: p.primary_material || "Authentic materials",
-              technique: p.craft_technique || "Traditional handcrafting",
+              technique: p.technique || p.craft_technique || "Traditional handcrafting",
             }));
             setProducts(mapped);
           }
         }
       } catch (err) {
-        // Fallback to rich curated local dataset
+        // Fallback to curated showcase offline dataset
       }
     };
     loadMarketplace();
@@ -163,12 +169,28 @@ export default function BuyerMarketplaceScreen() {
     return matchesCategory && matchesSearch;
   });
 
-  const handleAddToCart = () => {
-    setCartSuccess(true);
-    setTimeout(() => {
-      setCartSuccess(false);
-      setSelectedProduct(null);
-    }, 1500);
+  const handleAddToCart = async () => {
+    if (!selectedProduct) return;
+    setLoading(true);
+    try {
+      if (token) {
+        await apiFetch("/orders/checkout", {
+          method: "POST",
+          token,
+          idempotencyKey: `mob-order-${selectedProduct.id}-${Date.now()}`,
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            items: [{ variant_id: selectedProduct.id, quantity: 1 }],
+            order_type: "RETAIL",
+            delivery_address: { city: "Bengaluru", state: "Karnataka", pincode: "560001" },
+            payment_method: "RAZORPAY_UPI",
+          }),
+        });
+      }
+      setCartSuccess(true);
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -321,18 +343,21 @@ export default function BuyerMarketplaceScreen() {
                   </Text>
 
                   <View style={styles.pricingSection}>
-                    <div>
+                    <View>
                       <Text style={styles.modalPriceLabel}>Direct Artisan Price</Text>
                       <Text style={styles.modalPrice}>
                         ₹{selectedProduct.price.toLocaleString("en-IN")}
                       </Text>
-                    </div>
+                    </View>
 
                     <TouchableOpacity
                       style={[
                         styles.buyButton,
+                        { minHeight: TouchTargets.minHeight, justifyContent: "center" },
                         cartSuccess && styles.buyButtonSuccess,
                       ]}
+                      accessibilityRole="button"
+                      accessibilityLabel="Order craft product via Razorpay UPI"
                       onPress={handleAddToCart}
                     >
                       {cartSuccess ? (

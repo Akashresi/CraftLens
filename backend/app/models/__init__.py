@@ -6,6 +6,7 @@ from app.models.b2b import PurchaseOrder, PurchaseRequest, Quotation
 from app.models.buyer import Buyer, BuyerBusinessProfile
 from app.models.category import Category, CraftOrigin
 from app.models.heritage import ProductQR, ProvenanceRecord
+from app.models.idempotency import IdempotencyRecord
 from app.models.inventory import Inventory, StockMovement
 from app.models.marketing import BusinessExpense, DemandPrediction, MarketingAsset, MarketingCampaign
 from app.models.order import Order, OrderItem, Payment, Shipment
@@ -70,4 +71,5 @@ __all__ = [
     "AIJob",
     "Review",
     "Notification",
+    "IdempotencyRecord",
 ]

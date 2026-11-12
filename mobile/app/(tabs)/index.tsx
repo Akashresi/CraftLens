@@ -8,8 +8,10 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Colors, Spacing, BorderRadius, Typography } from "../../src/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, TouchTargets } from "../../src/constants/theme";
 import { useAuthStore } from "../../src/store/authStore";
+import { API_BASE_URL, apiFetch } from "../../src/services/apiClient";
+import { offlineSyncService } from "../../src/services/offlineSync";
 import {
   Camera,
   Mic,
@@ -24,8 +26,13 @@ import {
 
 export default function ArtisanHomeScreen() {
   const router = useRouter();
-  const { user, language } = useAuthStore();
+  const { user, language, token } = useAuthStore();
   const [voiceQueryActive, setVoiceQueryActive] = useState(false);
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+
+  React.useEffect(() => {
+    offlineSyncService.getPendingDrafts().then((d) => setPendingSyncCount(d.length)).catch(() => {});
+  }, []);
 
   const getGreeting = () => {
     switch (language) {
@@ -44,17 +51,37 @@ export default function ArtisanHomeScreen() {
     }
   };
 
-  const handleVoiceAssistant = () => {
+  const handleVoiceAssistant = async () => {
     setVoiceQueryActive(true);
-    setTimeout(() => {
-      setVoiceQueryActive(false);
+    try {
+      if (pendingSyncCount > 0 && token) {
+        const synced = await offlineSyncService.syncPendingDrafts(token, API_BASE_URL);
+        const remaining = await offlineSyncService.getPendingDrafts();
+        setPendingSyncCount(remaining.length);
+        if (synced.syncedCount > 0) {
+          Alert.alert("Offline Sync Complete", `Uploaded ${synced.syncedCount} queued craft draft(s).`);
+        }
+      }
+      if (!token) {
+        Alert.alert("Sign In Required", "Sign in to ask live business questions from your artisan ledger.");
+        return;
+      }
+      const res = await apiFetch<{ answer: string }>("/business/ask-assistant", {
+        method: "POST",
+        token,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          query: language === "ta" ? "இந்த வாரம் விற்பனை மற்றும் வருமானம்?" : "What are my weekly sales and orders?",
+          language,
+        }),
+      });
       Alert.alert(
         "AI Business Assistant",
-        language === "ta"
-          ? "இந்த வாரம் உங்கள் மண்பாண்ட தயாரிப்புகளுக்கு 12 ஆர்டர்கள் வந்துள்ளன! மொத்த வருமானம் ₹18,400. 1 பொருளுக்கு இருப்பு குறைவாக உள்ளது."
-          : "You received 12 orders this week! Total income ₹18,400. 1 item is running low on stock."
+        res.ok && res.data?.answer ? res.data.answer : res.error || "Unable to fetch business summary right now."
       );
-    }, 1500);
+    } finally {
+      setVoiceQueryActive(false);
+    }
   };
 
   return (
@@ -73,9 +100,11 @@ export default function ArtisanHomeScreen() {
           </View>
         </View>
 
-        {/* Voice Assistant Tap Bar */}
+        {/* Voice Assistant Tap Bar (>= 52dp touch target & screen reader label) */}
         <TouchableOpacity
-          style={[styles.voiceBar, voiceQueryActive && styles.voiceBarActive]}
+          style={[styles.voiceBar, { minHeight: TouchTargets.minHeight }, voiceQueryActive && styles.voiceBarActive]}
+          accessibilityRole="button"
+          accessibilityLabel="Tap to ask business questions in your language"
           onPress={handleVoiceAssistant}
           activeOpacity={0.8}
         >

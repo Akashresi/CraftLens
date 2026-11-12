@@ -1,13 +1,22 @@
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, Header, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_active_user, require_role
 from app.core.rate_limit import rate_limit
 from app.core.upload_security import sanitize_text, validate_audio_upload
 from app.db.session import get_db
-from app.models import AIJob, ArtisanProfile, Category, GeneratedDescription, Product, ProductTranslation, User
+from app.models import (
+    AIJob,
+    ArtisanProfile,
+    Category,
+    GeneratedDescription,
+    IdempotencyRecord,
+    Product,
+    ProductTranslation,
+    User,
+)
 from app.schemas.common import APIResponse
 from app.schemas.voice import ApplyCatalogIn, GeneratedCatalogOut, VoiceCatalogGenerateIn, VoiceTranscribeOut
 from app.services.voice_catalog import extract_and_generate_catalog, transcribe_regional_audio
@@ -78,9 +87,30 @@ def apply_catalog_to_product(
     payload: ApplyCatalogIn,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("ARTISAN")),
+    x_idempotency_key: str | None = Header(default=None, alias="X-Idempotency-Key"),
 ):
-    """Persists artisan-confirmed catalog data as a DRAFT product (never auto-published)."""
+    """Persists artisan-confirmed catalog data as a DRAFT product (never auto-published).
+    Supports X-Idempotency-Key so offline mobile retries never duplicate drafts.
+    """
     require_role("ARTISAN")(current_user)
+    idem_key = x_idempotency_key.strip() if isinstance(x_idempotency_key, str) and x_idempotency_key.strip() else None
+    if idem_key:
+        existing_idem = (
+            db.query(IdempotencyRecord)
+            .filter(
+                IdempotencyRecord.user_id == current_user.id,
+                IdempotencyRecord.endpoint == "voice.apply_to_product",
+                IdempotencyRecord.idempotency_key == idem_key,
+            )
+            .first()
+        )
+        if existing_idem:
+            return APIResponse(
+                success=True,
+                message="Product draft already synced (idempotent replay)",
+                data={**existing_idem.response_payload, "idempotent_replay": True},
+            )
+
     if not payload.artisan_confirmed:
         raise HTTPException(
             status_code=400,
@@ -144,10 +174,20 @@ def apply_catalog_to_product(
         )
         db.add(trans_hi)
 
+    result_data = {"product_id": product.id, "slug": product.slug, "idempotent_replay": False}
+    if idem_key:
+        db.add(
+            IdempotencyRecord(
+                user_id=current_user.id,
+                endpoint="voice.apply_to_product",
+                idempotency_key=idem_key,
+                response_payload=result_data,
+            )
+        )
     db.commit()
 
     return APIResponse(
         success=True,
         message="Product listing created with multilingual descriptions",
-        data={"product_id": product.id, "slug": product.slug},
+        data=result_data,
     )

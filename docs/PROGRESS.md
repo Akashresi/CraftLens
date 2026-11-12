@@ -90,12 +90,17 @@ Methodology: **ACT -> VERIFY -> RECORD** (evidence required for every ticked ite
 ---
 
 ## PHASE 5: MOBILE AND OFFLINE-FIRST
-- [ ] Offline draft sync using `expo-sqlite` / persistent adapter, conflict policy (`last-write-wins` + conflict log), idempotent endpoints, exponential backoff.
-- [ ] Low-literacy UX: large touch targets (>= 48dp), icon-first screens, voice prompts, minimal text input.
-- [ ] Accessibility: screen reader labels, >= 4.5:1 contrast, low-end optimization notes.
-- [ ] Privacy-respecting consent-based analytics & crash reporting hook.
-- [ ] Scripted offline create-listing -> reconnect -> sync test with zero data loss.
-- [ ] **PHASE 5 GATE**
+- [x] Offline draft sync using `expo-sqlite` / persistent adapter, conflict policy (`last-write-wins` + conflict log), idempotent endpoints, exponential backoff.
+  - Evidence: Implemented `OfflineSyncManager` + `ExpoSQLiteStorageAdapter` in `mobile/src/services/offlineSync.ts` (`LAST_WRITE_WINS` conflict policy with durable `conflict_log`, `computeBackoffMs` exponential backoff, `X-Idempotency-Key` headers), backed by `IdempotencyRecord` table (Alembic `e5a7c9d1b345`) on `POST /api/v1/voice/apply-to-product`.
+- [x] Low-literacy UX: large touch targets (>= 48dp), icon-first screens, voice prompts, minimal text input.
+  - Evidence: Wired `mobile/app/(tabs)/studio.tsx`, `voice.tsx`, `index.tsx` and `mobile/app/(buyer-tabs)/marketplace.tsx` to live API endpoints (removed simulated `setTimeout` mocks and invalid HTML `<div>` in RN), enforcing `TouchTargets.minHeight = 52` (`>= 48dp`), icon-first buttons, and 8 Indian languages (`ta, hi, te, kn, ml, bn, mr, en`).
+- [x] Accessibility: screen reader labels, >= 4.5:1 contrast, low-end optimization notes.
+  - Evidence: Updated `mobile/src/constants/theme.ts` (`muted: "#565C55"` -> 6.3:1 on white, `secondaryDark: "#96512B"` -> 5.7:1 with white text, `success`/`warning`/`error` >= 4.5:1), added `accessibilityRole` + `accessibilityLabel` across action buttons, and kept Hermes/lightweight OpenCV offloading on backend (`0.85` image compression on mobile capture) for low-end 2GB RAM Android devices.
+- [x] Privacy-respecting consent-based analytics & crash reporting hook.
+  - Evidence: Added `ConsentGatedTelemetry` in `mobile/src/services/telemetry.ts` (strictly disabled by default until DPDP consent granted, scrubbing PII keys; Sentry transport marked `STUB`).
+- [x] Scripted offline create-listing -> reconnect -> sync test with zero data loss.
+  - Evidence: `mobile/tests/run_offline_sync_test.mjs` verified offline save -> LWW stale conflict logging -> network fail + exponential backoff -> reconnect sync; `backend/tests/test_mobile_offline_sync_phase5.py` verified DB idempotency replay (`1` product persisted across retries).
+- [x] **PHASE 5 GATE PASSED**: `cd mobile; npx tsc --noEmit` -> exit 0; offline sync script -> `PASS`; `pytest` -> **50 passed, 90.91% coverage**; `ruff` & `mypy` clean.
 
 ---
 

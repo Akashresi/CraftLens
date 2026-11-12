@@ -35,13 +35,13 @@ const LANGUAGES = [
 
 export default function MobileProfileScreen() {
   const router = useRouter();
-  const { user, language, setLanguage, logout } = useAuthStore();
+  const { user, language, setLanguage, logout, token } = useAuthStore();
   const [isSyncing, setIsSyncing] = useState(false);
 
   const handleSyncDrafts = async () => {
     setIsSyncing(true);
     try {
-      const result = await offlineSyncService.syncDraftsToServer();
+      const result = await offlineSyncService.syncDraftsToServer(token || "");
       Alert.alert(
         "Sync Complete",
         `Successfully synced ${result.syncedCount} offline drafts to the CraftLens cloud server!`

@@ -1,147 +1,326 @@
 /**
- * CraftLens 2.0 Offline-First Synchronization Engine
- * Module 13: Local SQLite caching, offline drafts, retry queues & conflict resolution
+ * Persistent Offline-First Sync Service for CraftLens Artisans
+ *
+ * - Persists drafts in expo-sqlite (`craftlens_offline.db`) on native devices
+ *   with a clean StorageAdapter abstraction for automated integration testing.
+ * - Explicit Conflict Resolution Policy: LAST_WRITE_WINS (LWW) by `updatedAtMs`,
+ *   logging discarded stale edits into a durable conflict_log.
+ * - Exponential backoff retries + deterministic `X-Idempotency-Key` headers.
  */
 
-export interface ProductDraft {
-  local_id: string;
-  server_id?: string;
+import { API_BASE_URL } from "./apiClient";
+
+declare const require: ((moduleName: string) => Record<string, unknown>) | undefined;
+
+export type SyncStatus = "PENDING" | "SYNCED" | "FAILED";
+
+export interface OfflineDraft {
+  id: string;
+  idempotencyKey: string;
   title: string;
-  summary: string;
-  primary_material: string;
+  description: string;
+  categorySlug: string;
+  primaryMaterial: string;
   technique: string;
-  category_slug: string;
-  retail_price?: number;
-  wholesale_price?: number;
-  local_photo_uri?: string;
-  voice_transcript?: string;
-  sync_status: "DRAFT_LOCAL" | "SYNCING" | "SYNCED" | "CONFLICT" | "ERROR";
-  last_updated_at: string;
-  error_message?: string;
+  voiceTranscript?: string;
+  language: string;
+  retailPrice?: number;
+  artisanConfirmed: boolean;
+  syncStatus: SyncStatus;
+  attempts: number;
+  nextRetryAt: number;
+  updatedAtMs: number;
+  createdAt: string;
+  remoteProductId?: string;
+  lastError?: string;
 }
 
-class OfflineSyncEngine {
-  private drafts: Map<string, ProductDraft> = new Map();
+export interface ConflictLogEntry {
+  draftId: string;
+  policy: "LAST_WRITE_WINS";
+  winnerUpdatedAtMs: number;
+  discardedUpdatedAtMs: number;
+  summary: string;
+  recordedAt: string;
+}
 
-  constructor() {
-    this.loadDraftsFromStorage();
-  }
+export interface StorageAdapter {
+  loadDrafts(): Promise<OfflineDraft[]>;
+  saveDraft(draft: OfflineDraft): Promise<void>;
+  deleteDraft(id: string): Promise<void>;
+  loadConflicts(): Promise<ConflictLogEntry[]>;
+  appendConflict(entry: ConflictLogEntry): Promise<void>;
+}
 
-  private loadDraftsFromStorage() {
-    // In React Native Expo, backed by SQLite (expo-sqlite)
-    // Synchronous memory-backed fallback initialized for instant operation
-  }
+export class InMemoryStorageAdapter implements StorageAdapter {
+  private drafts = new Map<string, OfflineDraft>();
+  private conflicts: ConflictLogEntry[] = [];
 
-  public saveDraft(draft: Omit<ProductDraft, "last_updated_at" | "sync_status">): ProductDraft {
-    const fullDraft: ProductDraft = {
-      ...draft,
-      sync_status: "DRAFT_LOCAL",
-      last_updated_at: new Date().toISOString(),
-    };
-    this.drafts.set(fullDraft.local_id, fullDraft);
-    return fullDraft;
-  }
-
-  public getDrafts(): ProductDraft[] {
+  async loadDrafts(): Promise<OfflineDraft[]> {
     return Array.from(this.drafts.values());
   }
 
-  public async syncDraft(local_id: string, authToken: string): Promise<ProductDraft> {
-    const draft = this.drafts.get(local_id);
-    if (!draft) throw new Error("Draft not found");
-
-    draft.sync_status = "SYNCING";
-
-    try {
-      // 1. Send to server
-      const res = await fetch("http://127.0.0.1:8000/api/v1/voice/apply-to-product", {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${authToken}`,
-        },
-        body: JSON.stringify({
-          title: draft.title,
-          summary: draft.summary,
-          primary_material: draft.primary_material,
-          technique: draft.technique,
-          category_slug: draft.category_slug,
-          source_transcript: draft.voice_transcript,
-        }),
-      });
-
-      const data = await res.json();
-      if (!res.ok || !data.success) {
-        draft.sync_status = "ERROR";
-        draft.error_message = data.error || "Server sync rejected";
-        return draft;
-      }
-
-      const serverProductId = data.data.product_id;
-      draft.server_id = serverProductId;
-
-      // 2. Apply pricing if defined
-      if (draft.retail_price && draft.wholesale_price) {
-        await fetch(`http://127.0.0.1:8000/api/v1/pricing/apply/${serverProductId}`, {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            Authorization: `Bearer ${authToken}`,
-          },
-          body: JSON.stringify({
-            retail_price: draft.retail_price,
-            wholesale_price: draft.wholesale_price,
-            stock_quantity: 5,
-          }),
-        });
-      }
-
-      draft.sync_status = "SYNCED";
-      draft.last_updated_at = new Date().toISOString();
-      return draft;
-    } catch (err: any) {
-      draft.sync_status = "ERROR";
-      draft.error_message = err.message || "Network offline. Queued for automatic retry.";
-      return draft;
-    }
+  async saveDraft(draft: OfflineDraft): Promise<void> {
+    this.drafts.set(draft.id, { ...draft });
   }
 
-  public async syncAllPending(authToken: string): Promise<ProductDraft[]> {
-    const pending = this.getDrafts().filter((d) => d.sync_status === "DRAFT_LOCAL" || d.sync_status === "ERROR");
-    const results = [];
-    for (const d of pending) {
-      results.push(await this.syncDraft(d.local_id, authToken));
-    }
-    return results;
+  async deleteDraft(id: string): Promise<void> {
+    this.drafts.delete(id);
+  }
+
+  async loadConflicts(): Promise<ConflictLogEntry[]> {
+    return [...this.conflicts];
+  }
+
+  async appendConflict(entry: ConflictLogEntry): Promise<void> {
+    this.conflicts.push({ ...entry });
   }
 }
 
-export const offlineSyncEngine = new OfflineSyncEngine();
+export class ExpoSQLiteStorageAdapter implements StorageAdapter {
+  private initialized = false;
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private db: any = null;
+  private fallback = new InMemoryStorageAdapter();
 
-// STUB: Compatibility wrapper until Phase 5 full expo-sqlite sync implementation
-export const offlineSyncService = {
+  private async ensureDb(): Promise<boolean> {
+    if (this.initialized) return this.db !== null;
+    this.initialized = true;
+    try {
+      const req = typeof require === "function" ? require : null;
+      const sqlite = req ? (req("expo-sqlite") as { openDatabaseSync?: (n: string) => unknown; default?: { openDatabaseSync?: (n: string) => unknown } }) : null;
+      const openFn = sqlite?.openDatabaseSync || sqlite?.default?.openDatabaseSync;
+      if (typeof openFn !== "function") return false;
+      this.db = openFn("craftlens_offline.db");
+      this.db.execSync(
+        `CREATE TABLE IF NOT EXISTS offline_drafts (
+          id TEXT PRIMARY KEY NOT NULL,
+          payload TEXT NOT NULL
+        );
+        CREATE TABLE IF NOT EXISTS conflict_log (
+          id INTEGER PRIMARY KEY AUTOINCREMENT,
+          payload TEXT NOT NULL
+        );`
+      );
+      return true;
+    } catch {
+      this.db = null;
+      return false;
+    }
+  }
+
+  async loadDrafts(): Promise<OfflineDraft[]> {
+    if (!(await this.ensureDb())) return this.fallback.loadDrafts();
+    const rows = this.db.getAllSync("SELECT payload FROM offline_drafts") as Array<{ payload: string }>;
+    return rows.map((r) => JSON.parse(r.payload) as OfflineDraft);
+  }
+
+  async saveDraft(draft: OfflineDraft): Promise<void> {
+    if (!(await this.ensureDb())) return this.fallback.saveDraft(draft);
+    this.db.runSync(
+      "INSERT OR REPLACE INTO offline_drafts (id, payload) VALUES (?, ?)",
+      [draft.id, JSON.stringify(draft)]
+    );
+  }
+
+  async deleteDraft(id: string): Promise<void> {
+    if (!(await this.ensureDb())) return this.fallback.deleteDraft(id);
+    this.db.runSync("DELETE FROM offline_drafts WHERE id = ?", [id]);
+  }
+
+  async loadConflicts(): Promise<ConflictLogEntry[]> {
+    if (!(await this.ensureDb())) return this.fallback.loadConflicts();
+    const rows = this.db.getAllSync("SELECT payload FROM conflict_log ORDER BY id DESC") as Array<{ payload: string }>;
+    return rows.map((r) => JSON.parse(r.payload) as ConflictLogEntry);
+  }
+
+  async appendConflict(entry: ConflictLogEntry): Promise<void> {
+    if (!(await this.ensureDb())) return this.fallback.appendConflict(entry);
+    this.db.runSync("INSERT INTO conflict_log (payload) VALUES (?)", [JSON.stringify(entry)]);
+  }
+}
+
+export type SyncTransport = (
+  url: string,
+  headers: Record<string, string>,
+  body: Record<string, unknown>
+) => Promise<{ ok: boolean; status: number; data?: { product_id?: string }; error?: string }>;
+
+export async function defaultHttpTransport(
+  url: string,
+  headers: Record<string, string>,
+  body: Record<string, unknown>
+): Promise<{ ok: boolean; status: number; data?: { product_id?: string }; error?: string }> {
+  const res = await fetch(url, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", ...headers },
+    body: JSON.stringify(body),
+  });
+  const json = await res.json().catch(() => null);
+  if (!res.ok) {
+    return {
+      ok: false,
+      status: res.status,
+      error: (json && (json.detail || json.message)) || `HTTP ${res.status}`,
+    };
+  }
+  return { ok: true, status: res.status, data: json?.data || {} };
+}
+
+export function computeBackoffMs(attempt: number, baseMs = 1000, maxMs = 60000): number {
+  return Math.min(maxMs, baseMs * Math.pow(2, Math.max(0, attempt - 1)));
+}
+
+export class OfflineSyncManager {
+  constructor(private storage: StorageAdapter = new ExpoSQLiteStorageAdapter()) {}
+
   async saveDraft(input: {
+    id?: string;
     title: string;
     description: string;
-    category: string;
-    materials: string;
+    category?: string;
+    categorySlug?: string;
+    materials?: string;
+    primaryMaterial?: string;
+    technique?: string;
     voiceTranscript?: string;
     language?: string;
-  }): Promise<ProductDraft> {
-    return offlineSyncEngine.saveDraft({
-      local_id: `draft-${Date.now()}`,
+    retailPrice?: number;
+    artisanConfirmed?: boolean;
+    updatedAtMs?: number;
+  }): Promise<{ draft: OfflineDraft; conflictLogged: boolean }> {
+    const existingList = await this.storage.loadDrafts();
+    const id = input.id || `draft_${Date.now()}_${Math.random().toString(36).slice(2, 8)}`;
+    const nowMs = input.updatedAtMs ?? Date.now();
+    const existing = existingList.find((d) => d.id === id);
+
+    // Explicit LAST_WRITE_WINS conflict policy when stale incoming write collides with newer record
+    if (existing && nowMs < existing.updatedAtMs) {
+      await this.storage.appendConflict({
+        draftId: id,
+        policy: "LAST_WRITE_WINS",
+        winnerUpdatedAtMs: existing.updatedAtMs,
+        discardedUpdatedAtMs: nowMs,
+        summary: `Preserved newer draft '${existing.title}' over stale edit '${input.title}'.`,
+        recordedAt: new Date().toISOString(),
+      });
+      return { draft: existing, conflictLogged: true };
+    }
+
+    const draft: OfflineDraft = {
+      id,
+      idempotencyKey: existing?.idempotencyKey || `idem-${id}`,
       title: input.title,
-      summary: input.description,
-      primary_material: input.materials,
-      technique: input.category,
-      category_slug: input.category.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
-      voice_transcript: input.voiceTranscript,
-    });
-  },
-  async syncDraftsToServer(authToken = ""): Promise<{ syncedCount: number }> {
-    const res = await offlineSyncEngine.syncAllPending(authToken);
-    return { syncedCount: res.filter((d) => d.sync_status === "SYNCED").length };
-  },
-};
+      description: input.description,
+      categorySlug: input.categorySlug || input.category || "handloom-textiles",
+      primaryMaterial: input.primaryMaterial || input.materials || "Natural Handcrafted Material",
+      technique: input.technique || "Traditional Indian Handicraft",
+      voiceTranscript: input.voiceTranscript,
+      language: input.language || "ta",
+      retailPrice: input.retailPrice,
+      artisanConfirmed: input.artisanConfirmed ?? true,
+      syncStatus: "PENDING",
+      attempts: 0,
+      nextRetryAt: 0,
+      updatedAtMs: nowMs,
+      createdAt: existing?.createdAt || new Date().toISOString(),
+      remoteProductId: existing?.remoteProductId,
+    };
+    await this.storage.saveDraft(draft);
+    return { draft, conflictLogged: false };
+  }
 
+  async getDrafts(): Promise<OfflineDraft[]> {
+    return this.storage.loadDrafts();
+  }
 
+  async getPendingDrafts(): Promise<OfflineDraft[]> {
+    const all = await this.storage.loadDrafts();
+    return all.filter((d) => d.syncStatus !== "SYNCED");
+  }
+
+  async getConflicts(): Promise<ConflictLogEntry[]> {
+    return this.storage.loadConflicts();
+  }
+
+  async syncPendingDrafts(
+    token: string,
+    apiBaseUrl: string = API_BASE_URL,
+    transport: SyncTransport = defaultHttpTransport,
+    nowMs: number = Date.now()
+  ): Promise<{ syncedCount: number; deferredCount: number; failedCount: number }> {
+    const drafts = await this.storage.loadDrafts();
+    let syncedCount = 0;
+    let deferredCount = 0;
+    let failedCount = 0;
+
+    for (const draft of drafts) {
+      if (draft.syncStatus === "SYNCED") continue;
+      if (draft.nextRetryAt > nowMs) {
+        deferredCount += 1;
+        continue;
+      }
+
+      try {
+        const res = await transport(
+          `${apiBaseUrl}/voice/apply-to-product`,
+          {
+            Authorization: `Bearer ${token}`,
+            "X-Idempotency-Key": draft.idempotencyKey,
+          },
+          {
+            title: draft.title,
+            summary: draft.description,
+            primary_material: draft.primaryMaterial,
+            technique: draft.technique,
+            category_slug: draft.categorySlug,
+            source_transcript: draft.voiceTranscript || "",
+            source_language: draft.language,
+            artisan_confirmed: draft.artisanConfirmed,
+          }
+        );
+
+        if (res.ok) {
+          draft.syncStatus = "SYNCED";
+          draft.remoteProductId = res.data?.product_id;
+          draft.lastError = undefined;
+          await this.storage.saveDraft(draft);
+          syncedCount += 1;
+        } else {
+          draft.attempts += 1;
+          draft.syncStatus = "FAILED";
+          draft.nextRetryAt = nowMs + computeBackoffMs(draft.attempts);
+          draft.lastError = res.error || `HTTP ${res.status}`;
+          await this.storage.saveDraft(draft);
+          failedCount += 1;
+        }
+      } catch (err) {
+        draft.attempts += 1;
+        draft.syncStatus = "FAILED";
+        draft.nextRetryAt = nowMs + computeBackoffMs(draft.attempts);
+        draft.lastError = err instanceof Error ? err.message : "Network error";
+        await this.storage.saveDraft(draft);
+        failedCount += 1;
+      }
+    }
+
+    return { syncedCount, deferredCount, failedCount };
+  }
+
+  async syncDraftsToServer(token = ""): Promise<{ syncedCount: number; deferredCount: number; failedCount: number }> {
+    if (!token) {
+      return { syncedCount: 0, deferredCount: (await this.getPendingDrafts()).length, failedCount: 0 };
+    }
+    return this.syncPendingDrafts(token);
+  }
+}
+
+export const offlineSyncService = new OfflineSyncManager();
+
+export async function queueOfflineDraft(draft: Parameters<OfflineSyncManager["saveDraft"]>[0]) {
+  return offlineSyncService.saveDraft(draft);
+}
+
+export async function getOfflineDrafts() {
+  return offlineSyncService.getDrafts();
+}

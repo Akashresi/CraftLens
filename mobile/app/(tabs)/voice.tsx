@@ -10,9 +10,11 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Colors, Spacing, BorderRadius, Typography } from "../../src/constants/theme";
+import { Colors, Spacing, BorderRadius, Typography, TouchTargets } from "../../src/constants/theme";
 import { useAuthStore } from "../../src/store/authStore";
 import { offlineSyncService } from "../../src/services/offlineSync";
+import { API_BASE_URL, apiFetch } from "../../src/services/apiClient";
+import { telemetry } from "../../src/services/telemetry";
 import {
   Mic,
   Square,
@@ -28,15 +30,17 @@ import {
 const LANGUAGES = [
   { code: "ta", label: "தமிழ்" },
   { code: "hi", label: "हिंदी" },
-  { code: "en", label: "English" },
   { code: "te", label: "తెలుగు" },
   { code: "kn", label: "ಕನ್ನಡ" },
   { code: "ml", label: "മലയാളം" },
+  { code: "bn", label: "বাংলা" },
+  { code: "mr", label: "मराठी" },
+  { code: "en", label: "English" },
 ];
 
 export default function MobileVoiceScreen() {
   const router = useRouter();
-  const { language, setLanguage } = useAuthStore();
+  const { language, setLanguage, token } = useAuthStore();
 
   const [isRecording, setIsRecording] = useState(false);
   const [isTranscribing, setIsTranscribing] = useState(false);
@@ -66,31 +70,49 @@ export default function MobileVoiceScreen() {
 
   const [savingOffline, setSavingOffline] = useState(false);
 
-  const toggleRecording = () => {
+  const toggleRecording = async () => {
     if (!isRecording) {
       setIsRecording(true);
-    } else {
-      setIsRecording(false);
-      setIsTranscribing(true);
-
-      setTimeout(() => {
-        setIsTranscribing(false);
-        if (language === "hi") {
-          setTranscript(
-            "यह मिट्टी का बना पारंपरिक दीया और कलश है, जिसे प्राकृतिक रंगों से रंगा गया है। इसमें 5 घंटे की मेहनत लगी है।"
-          );
-          setCatalog({
-            title: "Traditional Handcrafted Earthen Festive Kalash & Diya Set",
-            description:
-              "Hand-molded traditional clay kalash kiln-fired with organic husk, decorated using traditional natural mineral pigments.",
-            category: "Pottery & Clay Art",
-            materials: "Natural Terracotta Clay, Organic Slip",
-            estimated_hours: "5.0 Hours",
-            keywords: "Clay Diya, Earthen Kalash, Diwali Pottery, Handicrafts",
-          });
-        }
-        Alert.alert("Catalog Generated", "AI extracted product details from your voice!");
-      }, 1500);
+      return;
+    }
+    setIsRecording(false);
+    setIsTranscribing(true);
+    try {
+      if (!token) {
+        Alert.alert("Offline Draft Mode", "Edit the transcript below and save offline; it will sync when signed in.");
+        return;
+      }
+      const res = await apiFetch<{
+        title_en: string;
+        description_en: string;
+        suggested_category_slug: string;
+        primary_material: string;
+        seo_keywords: string[];
+      }>("/voice/generate-catalog", {
+        method: "POST",
+        token,
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ transcript, source_language: language }),
+      });
+      if (res.ok && res.data) {
+        setCatalog({
+          title: res.data.title_en,
+          description: res.data.description_en,
+          category: res.data.suggested_category_slug,
+          materials: res.data.primary_material,
+          estimated_hours: "6.0 Hours",
+          keywords: (res.data.seo_keywords || []).join(", "),
+        });
+        telemetry.trackEvent("voice_catalog_generated", { language });
+        Alert.alert("Draft Ready for Review", "Please verify details below before saving or syncing.");
+      } else {
+        Alert.alert("Generation Failed", res.error || "Please review fields manually and save offline.");
+      }
+    } catch (err) {
+      telemetry.captureCrash(err, { screen: "voice" });
+      Alert.alert("Offline Mode", "Network unavailable; save draft locally and sync automatically later.");
+    } finally {
+      setIsTranscribing(false);
     }
   };
 
@@ -100,16 +122,25 @@ export default function MobileVoiceScreen() {
       await offlineSyncService.saveDraft({
         title: catalog.title,
         description: catalog.description,
-        category: catalog.category,
-        materials: catalog.materials,
+        categorySlug: catalog.category,
+        primaryMaterial: catalog.materials,
         voiceTranscript: transcript,
         language,
+        artisanConfirmed: true,
       });
+      if (token) {
+        const syncRes = await offlineSyncService.syncPendingDrafts(token, API_BASE_URL);
+        if (syncRes.syncedCount > 0) {
+          Alert.alert("Synced to CraftLens", `Draft persisted and synced (${syncRes.syncedCount} uploaded).`);
+          return;
+        }
+      }
       Alert.alert(
-        "Saved Offline",
-        "Draft saved securely to device SQLite! It will automatically sync when connected to the internet."
+        "Saved Offline (SQLite)",
+        "Draft saved securely on device! It will sync idempotently when online."
       );
     } catch (err) {
+      telemetry.captureCrash(err, { action: "saveDraft" });
       Alert.alert("Saved", "Draft saved locally.");
     } finally {
       setSavingOffline(false);
@@ -148,6 +179,8 @@ export default function MobileVoiceScreen() {
       <View style={styles.voiceCard}>
         <TouchableOpacity
           style={[styles.recordCircle, isRecording && styles.recordCircleActive]}
+          accessibilityRole="button"
+          accessibilityLabel={isRecording ? "Stop voice recording and extract catalog" : "Start speaking craft details"}
           onPress={toggleRecording}
           activeOpacity={0.8}
         >

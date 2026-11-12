@@ -1,21 +1,27 @@
 /**
  * CraftLens 2.0 Mobile Design System Tokens
- * Strict adherence to docs/DESIGN_SYSTEM.md
+ * Accessible high-contrast palette (>= 4.5:1) & large low-literacy touch targets (>= 48dp).
  */
 
 export const Colors = {
-  primary: "#285C45",       // Deep Forest Green
+  primary: "#285C45",       // Deep Forest Green (8.0:1 vs white)
   primaryDark: "#1C4332",
-  secondary: "#C47B52",     // Warm Terracotta
+  secondary: "#C47B52",     // Warm Terracotta accent
+  secondaryDark: "#96512B", // High-contrast terracotta for white button text (5.7:1)
   background: "#F8F6F0",    // Warm Ivory
   surface: "#FFFFFF",       // Pure White
   surfaceHover: "#F3EFE6",
-  text: "#242B27",          // Dark Charcoal
-  muted: "#858B83",         // Muted Sand / Sage
+  text: "#242B27",          // Dark Charcoal (14.5:1)
+  muted: "#565C55",         // Accessible Sage Slate (6.3:1 on white, 5.9:1 on ivory)
   border: "#E8E5DC",        // Natural Beige
-  success: "#32815A",
-  warning: "#D69B43",
-  error: "#C6534B",
+  success: "#236946",       // Accessible green (6.6:1)
+  warning: "#946200",       // Accessible amber (5.1:1)
+  error: "#B43931",         // Accessible crimson (5.5:1)
+};
+
+export const TouchTargets = {
+  minHeight: 52, // Exceeds 48dp WCAG/Android accessibility target for low-literacy field use
+  iconButtonSize: 56,
 };
 
 export const Spacing = {
@@ -45,4 +51,3 @@ export const Typography = {
   small: { fontSize: 14, fontWeight: "400" as const, lineHeight: 18 },
   caption: { fontSize: 12, fontWeight: "500" as const, lineHeight: 16 },
 };
-

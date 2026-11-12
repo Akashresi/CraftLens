@@ -10,7 +10,11 @@ import {
   Alert,
 } from "react-native";
 import { useRouter } from "expo-router";
-import { Colors, Spacing, BorderRadius, Typography } from "../../src/constants/theme";
+import * as ImagePicker from "expo-image-picker";
+import { Colors, Spacing, BorderRadius, Typography, TouchTargets } from "../../src/constants/theme";
+import { API_BASE_URL, apiFetch } from "../../src/services/apiClient";
+import { useAuthStore } from "../../src/store/authStore";
+import { telemetry } from "../../src/services/telemetry";
 import {
   Camera,
   Image as ImageIcon,
@@ -25,6 +29,7 @@ import {
 
 export default function MobileStudioScreen() {
   const router = useRouter();
+  const { token } = useAuthStore();
 
   // State
   const [selectedImage, setSelectedImage] = useState<string | null>(
@@ -52,30 +57,91 @@ export default function MobileStudioScreen() {
 
   const [viewMode, setViewMode] = useState<"studio" | "original">("studio");
 
-  const runStudioPipeline = () => {
-    setIsProcessing(true);
-    setActiveStep("Checking sharpness & blur...");
+  const pickCraftImage = async (fromCamera: boolean) => {
+    const pickerFn = fromCamera
+      ? ImagePicker.launchCameraAsync
+      : ImagePicker.launchImageLibraryAsync;
+    try {
+      const res = await pickerFn({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        quality: 0.85,
+      });
+      if (!res.canceled && res.assets?.[0]?.uri) {
+        setSelectedImage(res.assets[0].uri);
+      }
+    } catch (err) {
+      telemetry.captureCrash(err, { screen: "studio" });
+      Alert.alert("Camera Unavailable", "Using preview photo; pick an image on a physical device.");
+    }
+  };
 
-    setTimeout(() => {
-      setActiveStep("Isolating craft & removing background...");
-      setTimeout(() => {
-        setActiveStep("Balancing natural lighting & casting contact shadow...");
-        setTimeout(() => {
-          setIsProcessing(false);
-          setActiveStep(null);
+  const runStudioPipeline = async () => {
+    if (!selectedImage || !token) {
+      Alert.alert("Sign In Required", "Please sign in as an Artisan and choose a craft photo first.");
+      return;
+    }
+    setIsProcessing(true);
+    setActiveStep("Uploading photo to AI Studio queue...");
+    try {
+      const formData = new FormData();
+      formData.append("lifestyle_theme", "wood");
+      formData.append("file", {
+        uri: selectedImage,
+        name: "craft.jpg",
+        type: "image/jpeg",
+      } as unknown as Blob);
+
+      const enqueueRes = await fetch(`${API_BASE_URL}/studio/process-async`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData,
+      });
+      const enqueueJson = await enqueueRes.json().catch(() => null);
+      if (!enqueueRes.ok || !enqueueJson?.data?.job_id) {
+        Alert.alert("Upload Failed", enqueueJson?.detail || "Could not queue studio photo.");
+        return;
+      }
+
+      const jobId = enqueueJson.data.job_id as string;
+      setActiveStep("Removing background & balancing lighting...");
+      for (let i = 0; i < 20; i++) {
+        await new Promise((r) => setTimeout(r, 500));
+        const poll = await apiFetch<{
+          status: string;
+          result?: {
+            original_url: string;
+            white_bg_url: string;
+            quality_score: number;
+          };
+          error_message?: string;
+        }>(`/studio/jobs/${jobId}`, { token });
+        if (poll.ok && poll.data?.status === "COMPLETED" && poll.data.result) {
           setStudioResult({
-            originalUrl: "https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&w=600&q=80",
-            studioUrl: "https://images.unsplash.com/photo-1565193566173-7a0ee3dbe261?auto=format&fit=crop&w=600&q=80",
-            isSharp: true,
-            blurScore: 212.5,
+            originalUrl: poll.data.result.original_url,
+            studioUrl: poll.data.result.white_bg_url,
+            isSharp: poll.data.result.quality_score >= 6.0,
+            blurScore: poll.data.result.quality_score * 25,
             bgRemoved: true,
             lightingCorrected: true,
             shadowAdded: true,
           });
+          telemetry.trackEvent("studio_enhance_success");
           Alert.alert("Success", "Studio enhancement completed!");
-        }, 800);
-      }, 800);
-    }, 800);
+          return;
+        }
+        if (poll.ok && poll.data?.status === "FAILED") {
+          Alert.alert("Studio Error", poll.data.error_message || "Enhancement failed.");
+          return;
+        }
+      }
+      Alert.alert("Still Processing", "Your photo is queued and will update shortly.");
+    } catch (err) {
+      telemetry.captureCrash(err, { screen: "studio" });
+      Alert.alert("Network Unavailable", "Connect to the internet to run AI Studio enhancement.");
+    } finally {
+      setIsProcessing(false);
+      setActiveStep(null);
+    }
   };
 
   return (
@@ -150,36 +216,38 @@ export default function MobileStudioScreen() {
         )}
       </View>
 
-      {/* Image Capture & Pick Buttons */}
+      {/* Image Capture & Pick Buttons (>= 52dp accessible targets) */}
       <View style={styles.actionRow}>
         <TouchableOpacity
-          style={styles.pickerBtn}
-          onPress={() =>
-            setSelectedImage(
-              "https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&w=600&q=80"
-            )
-          }
+          style={[styles.pickerBtn, { minHeight: TouchTargets.minHeight }]}
+          accessibilityRole="button"
+          accessibilityLabel="Take camera photo of craft item"
+          onPress={() => pickCraftImage(true)}
         >
-          <Camera size={18} color={Colors.text} />
-          <Text style={styles.pickerBtnText}>Take Camera Photo</Text>
+          <Camera size={20} color={Colors.text} />
+          <Text style={styles.pickerBtnText}>Take Photo</Text>
         </TouchableOpacity>
 
         <TouchableOpacity
-          style={styles.pickerBtn}
-          onPress={() =>
-            setSelectedImage(
-              "https://images.unsplash.com/photo-1582562124811-c09040d0a901?auto=format&fit=crop&w=600&q=80"
-            )
-          }
+          style={[styles.pickerBtn, { minHeight: TouchTargets.minHeight }]}
+          accessibilityRole="button"
+          accessibilityLabel="Choose craft photo from phone gallery"
+          onPress={() => pickCraftImage(false)}
         >
-          <ImageIcon size={18} color={Colors.text} />
-          <Text style={styles.pickerBtnText}>Choose from Gallery</Text>
+          <ImageIcon size={20} color={Colors.text} />
+          <Text style={styles.pickerBtnText}>Gallery</Text>
         </TouchableOpacity>
       </View>
 
       {/* AI Process Trigger */}
       <TouchableOpacity
-        style={[styles.enhanceBtn, isProcessing && styles.enhanceBtnDisabled]}
+        style={[
+          styles.enhanceBtn,
+          { minHeight: TouchTargets.minHeight },
+          isProcessing && styles.enhanceBtnDisabled,
+        ]}
+        accessibilityRole="button"
+        accessibilityLabel="Enhance craft photo with AI background removal"
         onPress={runStudioPipeline}
         disabled={isProcessing}
         activeOpacity={0.8}
