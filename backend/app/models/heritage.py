@@ -2,7 +2,7 @@ import uuid
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import DateTime, ForeignKey, Integer, String, Text
+from sqlalchemy import Boolean, DateTime, ForeignKey, Integer, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -23,7 +23,13 @@ class ProvenanceRecord(Base):
     craft_technique_details: Mapped[str] = mapped_column(Text, nullable=True)
     maker_signature_hash: Mapped[str] = mapped_column(
         String(128), nullable=False
-    )  # Cryptographic hash of maker authenticity
+    )  # Cryptographic hash / fingerprint of maker authenticity
+    signed_payload: Mapped[str | None] = mapped_column(Text, nullable=True)
+    signature_ed25519: Mapped[str | None] = mapped_column(String(256), nullable=True)
+    public_key_fingerprint: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    is_revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     product: Mapped["Product"] = relationship("Product", back_populates="provenance_records")
@@ -40,6 +46,9 @@ class ProductQR(Base):
     public_url: Mapped[str] = mapped_column(String(500), nullable=False)
     scan_count: Mapped[int] = mapped_column(Integer, default=0)
     last_scanned_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=True)
+    is_revoked: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
+    revoked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    revoked_reason: Mapped[str | None] = mapped_column(String(255), nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     product: Mapped["Product"] = relationship("Product", back_populates="qr_code")

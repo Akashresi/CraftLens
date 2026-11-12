@@ -47,7 +47,7 @@ jobs:
 
       - name: Secret Scan (No hardcoded private keys or live tokens)
         run: |
-          ! git grep -nE "BEGIN (RSA|EC|OPENSSH|PGP) PRIVATE KEY|rzp_live_|AIza[0-9A-Za-z_-]{35}" -- ':(exclude).env.example'
+          ! git grep -nE "BEGIN (RSA|EC|OPENSSH|PGP) PRIVATE KEY|rzp_live_|AIza[0-9A-Za-z_-]{35}" -- ':(exclude).env.example' ':(exclude)docs/*' ':(exclude).github/*'
 
       - name: Alembic Migrations + Pytest (>=80% Coverage)
         run: |

@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
@@ -208,4 +208,34 @@ def get_artisan_incoming_orders(
         success=True,
         message="Artisan incoming order items retrieved",
         data=results,
+    )
+
+
+@router.get("/{order_id}", response_model=APIResponse[OrderOut])
+def get_order_detail(
+    order_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Retrieves a single order only if owned by the buyer, an involved artisan, or admin (IDOR guard)."""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+
+    roles = [r.code for r in current_user.roles]
+    is_admin = "ADMIN" in roles
+    is_buyer_owner = bool(order.buyer and order.buyer.user_id == current_user.id)
+    artisan = db.query(ArtisanProfile).filter(ArtisanProfile.user_id == current_user.id).first()
+    is_item_artisan = bool(artisan and any(it.artisan_id == artisan.id for it in order.items))
+
+    if not (is_admin or is_buyer_owner or is_item_artisan):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden: you do not have permission to view this order",
+        )
+
+    return APIResponse(
+        success=True,
+        message="Order details retrieved",
+        data=OrderOut.model_validate(order),
     )

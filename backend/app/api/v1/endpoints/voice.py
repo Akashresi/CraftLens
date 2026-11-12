@@ -4,6 +4,8 @@ from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import get_current_active_user, require_role
+from app.core.rate_limit import rate_limit
+from app.core.upload_security import sanitize_text, validate_audio_upload
 from app.db.session import get_db
 from app.models import AIJob, ArtisanProfile, Category, GeneratedDescription, Product, ProductTranslation, User
 from app.schemas.common import APIResponse
@@ -13,16 +15,19 @@ from app.services.voice_catalog import extract_and_generate_catalog, transcribe_
 router = APIRouter()
 
 
-@router.post("/transcribe", response_model=APIResponse[VoiceTranscribeOut])
+@router.post(
+    "/transcribe",
+    response_model=APIResponse[VoiceTranscribeOut],
+    dependencies=[Depends(rate_limit("voice_upload", max_requests=20, window_seconds=60))],
+)
 def transcribe_voice(
     file: UploadFile = File(...),
     language_code: str = Form("ta"),
     current_user: User = Depends(get_current_active_user),
 ):
-    """Transcribes spoken regional audio in Tamil, Hindi, Telugu, Kannada, Malayalam, or English."""
+    """Transcribes spoken regional audio in Tamil, Hindi, Telugu, Kannada, Malayalam, Bengali, Marathi, or English."""
     contents = file.file.read()
-    if len(contents) == 0:
-        raise HTTPException(status_code=400, detail="Audio file is empty")
+    validate_audio_upload(contents)
 
     result = transcribe_regional_audio(contents, language_code=language_code)
     return APIResponse(
@@ -93,11 +98,11 @@ def apply_catalog_to_product(
     product = Product(
         artisan_id=profile.id,
         category_id=category.id,
-        title=payload.title,
+        title=sanitize_text(payload.title) or payload.title,
         slug=slug,
-        summary=payload.summary,
-        primary_material=payload.primary_material,
-        technique=payload.technique,
+        summary=sanitize_text(payload.summary) or payload.summary,
+        primary_material=sanitize_text(payload.primary_material),
+        technique=sanitize_text(payload.technique),
         status="DRAFT",
     )
     db.add(product)

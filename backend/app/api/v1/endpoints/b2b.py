@@ -1,7 +1,7 @@
 import uuid
 from datetime import UTC, datetime
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
@@ -103,6 +103,14 @@ def submit_artisan_quotation(
     rfq = db.query(PurchaseRequest).filter(PurchaseRequest.id == quote_in.purchase_request_id).first()
     if not rfq:
         raise HTTPException(status_code=404, detail="RFQ not found")
+    rfq_product = db.query(Product).filter(Product.id == rfq.product_id).first()
+    if not rfq_product or (
+        rfq_product.artisan_id != profile.id and "ADMIN" not in [r.code for r in current_user.roles]
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden: you can only quote on RFQs for your own products",
+        )
 
     total_amount = round(float(quote_in.quoted_unit_price) * rfq.target_quantity, 2)
 
@@ -139,6 +147,14 @@ def accept_quotation_and_generate_po(
     quote = db.query(Quotation).filter(Quotation.id == quotation_id).first()
     if not quote:
         raise HTTPException(status_code=404, detail="Quotation not found")
+
+    buyer = db.query(Buyer).filter(Buyer.user_id == current_user.id).first()
+    roles = [r.code for r in current_user.roles]
+    if "ADMIN" not in roles and (not buyer or quote.purchase_request.buyer_id != buyer.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden: you can only accept quotations for your own RFQ",
+        )
 
     quote.status = "ACCEPTED"
     quote.purchase_request.status = "ACCEPTED"

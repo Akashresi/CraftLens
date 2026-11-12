@@ -2,10 +2,12 @@ import os
 import time
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
+from fastapi import APIRouter, Depends, File, Form, UploadFile
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_role
+from app.core.rate_limit import rate_limit
+from app.core.upload_security import validate_and_sanitize_image
 from app.db.session import get_db
 from app.models import ImageProcessingJob, User
 from app.schemas.common import APIResponse
@@ -25,16 +27,18 @@ os.makedirs(f"{UPLOAD_BASE}/original", exist_ok=True)
 os.makedirs(f"{UPLOAD_BASE}/processed", exist_ok=True)
 
 
-@router.post("/analyze", response_model=APIResponse[QualityAnalysisOut])
+@router.post(
+    "/analyze",
+    response_model=APIResponse[QualityAnalysisOut],
+    dependencies=[Depends(rate_limit("studio_upload", max_requests=25, window_seconds=60))],
+)
 def analyze_photo(
     file: UploadFile = File(...),
     current_user: User = Depends(require_role("ARTISAN")),
 ):
     """Analyzes photo quality, blur (Laplacian variance), and exposure before catalog creation."""
     require_role("ARTISAN")(current_user)
-    contents = file.file.read()
-    if len(contents) == 0:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+    contents = validate_and_sanitize_image(file.file.read())
 
     analysis = analyze_image_quality(contents)
     return APIResponse(
@@ -44,7 +48,11 @@ def analyze_photo(
     )
 
 
-@router.post("/process", response_model=APIResponse[StudioProcessResult])
+@router.post(
+    "/process",
+    response_model=APIResponse[StudioProcessResult],
+    dependencies=[Depends(rate_limit("studio_upload", max_requests=20, window_seconds=60))],
+)
 def process_product_photo(
     file: UploadFile = File(...),
     lifestyle_theme: str = Form("wood"),
@@ -56,18 +64,14 @@ def process_product_photo(
     """
     require_role("ARTISAN")(current_user)
     start_time = time.time()
-    raw_bytes = file.file.read()
-    if len(raw_bytes) == 0:
-        raise HTTPException(status_code=400, detail="Uploaded file is empty")
+    raw_bytes = validate_and_sanitize_image(file.file.read())
 
     file_id = str(uuid.uuid4())
-    ext = file.filename.split(".")[-1] if file.filename and "." in file.filename else "jpg"
-
-    # Save original image
-    orig_path = f"{UPLOAD_BASE}/original/{file_id}.{ext}"
+    # Fixed safe extension after re-encoding (prevents path traversal or SVG/HTML polyglot uploads)
+    orig_path = f"{UPLOAD_BASE}/original/{file_id}.jpg"
     with open(orig_path, "wb") as f:
         f.write(raw_bytes)
-    original_url = f"/uploads/original/{file_id}.{ext}"
+    original_url = f"/uploads/original/{file_id}.jpg"
 
     # 1. Quality analysis
     quality_result = analyze_image_quality(raw_bytes)

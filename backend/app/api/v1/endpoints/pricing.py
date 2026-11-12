@@ -1,6 +1,6 @@
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_role
@@ -55,6 +55,12 @@ def apply_pricing_to_product(
     product = db.query(Product).filter(Product.id == product_id).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
+    roles = [r.code for r in current_user.roles]
+    if "ADMIN" not in roles and (not product.artisan or product.artisan.user_id != current_user.id):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Access forbidden: you cannot set pricing for another artisan's product",
+        )
 
     sku = pricing_in.sku or f"{product.slug[:10].upper()}-{str(uuid.uuid4())[:4].upper()}"
 

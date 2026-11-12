@@ -12,7 +12,16 @@ from app.models.order import Order, OrderItem, Payment, Shipment
 from app.models.pricing import CostComponent, MarketComparable, PricingEstimate, PricingHistory
 from app.models.product import GeneratedDescription, Product, ProductImage, ProductTranslation, ProductVariant
 from app.models.review import Notification, Review
-from app.models.user import AuditLog, ConsentRecord, Permission, Role, User, role_permissions, user_roles
+from app.models.user import (
+    AuditLog,
+    ConsentRecord,
+    GrievanceTicket,
+    Permission,
+    Role,
+    User,
+    role_permissions,
+    user_roles,
+)
 
 __all__ = [
     "Base",
@@ -23,6 +32,7 @@ __all__ = [
     "role_permissions",
     "AuditLog",
     "ConsentRecord",
+    "GrievanceTicket",
     "ArtisanGroup",
     "ArtisanProfile",
     "ArtisanVerification",
