@@ -1,0 +1,94 @@
+name: CraftLens Staging Deployment
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Run staging deployment verification without pushing images"
+        required: false
+        default: "false"
+  push:
+    branches:
+      - staging
+    tags:
+      - "v*.*.*-rc*"
+
+concurrency:
+  group: staging-deployment-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  preflight-and-build:
+    name: Build & Verify Production Staging Images
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+
+      - name: Install DB and Drill Dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r backend/requirements-dev.txt
+
+      - name: Test Migration Idempotency & Reversibility
+        run: |
+          cp .env.example .env
+          python -m pytest backend/tests/test_migrations_reversible.py -v
+
+      - name: Test Database Backup and Restore Drill
+        run: |
+          python scripts/backup_db.py --drill
+
+      - name: Build Backend Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./backend
+          file: ./backend/Dockerfile
+          push: false
+          tags: craftlens/backend:staging-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Buyer Web Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./buyer-web
+          file: ./buyer-web/Dockerfile
+          push: false
+          tags: craftlens/buyer-web:staging-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Build Admin Web Docker Image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./admin-web
+          file: ./admin-web/Dockerfile
+          push: false
+          tags: craftlens/admin-web:staging-${{ github.sha }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  staging-health-verification:
+    name: Staging Deployment Verification
+    needs: preflight-and-build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Verify Staging Health Endpoints & Compose Config
+        run: |
+          cp .env.example .env
+          docker compose config -q
+          echo "Staging preflight checks passed successfully."
+

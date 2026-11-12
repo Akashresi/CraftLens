@@ -1,0 +1,74 @@
+{
+  "annotations": { "list": [] },
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 0,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 0 },
+      "id": 1,
+      "title": "HTTP Request Throughput (req/s)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(craftlens_http_requests_total[1m])) by (method, status)",
+          "legendFormat": "{{method}} - {{status}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 0 },
+      "id": 2,
+      "title": "Average Request Latency by Route (s)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "craftlens_http_request_duration_seconds",
+          "legendFormat": "{{path}}",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 12, "x": 0, "y": 8 },
+      "id": 3,
+      "title": "HTTP Error Rates (4xx / 5xx)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(craftlens_http_requests_total{status=~\"[45]..\"}[1m]))",
+          "legendFormat": "Errors (req/s)",
+          "refId": "A"
+        }
+      ]
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 8, "w": 12, "x": 12, "y": 8 },
+      "id": 4,
+      "title": "AI Jobs Processed (Studio & Voice)",
+      "type": "timeseries",
+      "targets": [
+        {
+          "expr": "sum(rate(craftlens_ai_jobs_total[5m])) by (job_type, status)",
+          "legendFormat": "{{job_type}} ({{status}})",
+          "refId": "A"
+        }
+      ]
+    }
+  ],
+  "schemaVersion": 39,
+  "tags": ["craftlens", "fastapi", "ai"],
+  "time": { "from": "now-1h", "to": "now" },
+  "timepicker": {},
+  "timezone": "browser",
+  "title": "CraftLens 2.0 Production Overview",
+  "version": 1
+}

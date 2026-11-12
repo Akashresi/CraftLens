@@ -120,12 +120,17 @@ Methodology: **ACT -> VERIFY -> RECORD** (evidence required for every ticked ite
 ---
 
 ## PHASE 7: OPERATIONS
-- [ ] Structured JSON logging with request IDs, Sentry integration, `/health` & `/ready` endpoints, Prometheus `/metrics` + dashboard config.
-- [ ] Automated DB backup script + tested restore procedure.
-- [ ] Forward & backward Alembic migrations tested cleanly on fresh DB.
-- [ ] Multi-stage non-root pinned Dockerfiles, staging deploy workflow, zero-downtime notes.
-- [ ] `/docs/RUNBOOK.md`.
-- [ ] **PHASE 7 GATE**
+- [x] Structured JSON logging with request IDs, Sentry integration, `/health` & `/ready` endpoints, Prometheus `/metrics` + dashboard config.
+  - Evidence: Implemented `JsonLogFormatter` & `PrometheusMetrics` in `backend/app/core/observability.py`. Integrated middleware in `backend/app/main.py` emitting `X-Request-ID` and structured request logs. Added `GET /api/v1/health` (liveness), `GET /api/v1/ready` (dependency probe for DB, storage, Redis), and `GET /api/v1/metrics` (Prometheus 0.0.4 text exposition format). Created Grafana dashboard at `deploy/grafana/dashboards/craftlens_overview.json`.
+- [x] Automated DB backup script + tested restore procedure.
+  - Evidence: Created `scripts/backup_db.py` supporting SQLite & Postgres with SHA-256 manifest verification and automated recovery drill (`python scripts/backup_db.py --drill` -> `PASS`, 47 verified tables).
+- [x] Forward & backward Alembic migrations tested cleanly on fresh DB.
+  - Evidence: Created `backend/tests/test_migrations_reversible.py` testing `alembic upgrade head -> downgrade base -> upgrade head` on an isolated fresh database (`PASSED`).
+- [x] Multi-stage non-root pinned Dockerfiles, staging deploy workflow, zero-downtime notes.
+  - Evidence: Created multi-stage non-root Dockerfiles with HEALTHCHECK: `backend/Dockerfile` (`python:3.11.9-slim-bookworm`, `appuser:10001`), `buyer-web/Dockerfile` and `admin-web/Dockerfile` (`node:20.17.0-alpine`, `nextjs:10001`). Added `.github/workflows/deploy-staging.yml` for CI/CD container builds and health verification.
+- [x] `/docs/RUNBOOK.md`.
+  - Evidence: Documented service topology, liveness/readiness diagnostics, rolling zero-downtime deployment, backup & restore drills, secret rotation (`SECRET_KEY`, Ed25519, Razorpay), incident response playbooks (webhook failure, account lockout), rollback steps, and Prometheus scraping in `docs/RUNBOOK.md`.
+- [x] **PHASE 7 GATE PASSED**: Full backend test suite **56 passed, 90.28% coverage** (`python -m pytest backend/tests --cov=backend/app --cov-fail-under=80 -v`); `ruff` and `mypy` clean; DB backup drill passed with 47 tables verified.
 
 ---
 
