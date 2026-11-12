@@ -1,9 +1,10 @@
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy import desc, or_
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload, selectinload
 
+from app.core.cache import cache
 from app.db.session import get_db
-from app.models import Category, Product, Review
+from app.models import ArtisanProfile, Category, Product, Review
 from app.schemas.common import APIResponse, PaginatedResponse
 from app.schemas.marketplace import CategoryOut, ProductPublicOut, ReviewOut
 
@@ -32,14 +33,33 @@ def discover_products(
     page_size: int = 20,
     db: Session = Depends(get_db),
 ):
-    """Public marketplace product discovery endpoint with pagination, keyword search,
-    category filters, and price ranges.
+    """Public marketplace product discovery endpoint with pagination, eager loading (no N+1),
+    keyword search, category filters, and Redis/TTL caching.
     """
-    # Safe int conversion in case Query wrapper passed
-    p = int(getattr(page, "default", page))
-    ps = int(getattr(page_size, "default", page_size))
+    p = max(1, int(getattr(page, "default", page)))
+    ps = min(100, max(1, int(getattr(page_size, "default", page_size))))
 
-    query = db.query(Product).filter(Product.status == "ACTIVE")
+    cache_key = (
+        f"marketplace:products:{category_slug or ''}:{search or ''}:{min_price or ''}:{max_price or ''}:{sort}:{p}:{ps}"
+    )
+    cached = cache.get_json(cache_key)
+    if cached is not None:
+        return APIResponse(
+            success=True,
+            message="Products retrieved successfully",
+            data=PaginatedResponse(**cached),
+        )
+
+    query = (
+        db.query(Product)
+        .options(
+            selectinload(Product.category),
+            selectinload(Product.variants),
+            selectinload(Product.images),
+            joinedload(Product.artisan).joinedload(ArtisanProfile.user),
+        )
+        .filter(Product.status == "ACTIVE")
+    )
 
     if category_slug:
         query = query.join(Category).filter(Category.slug == category_slug)
@@ -65,7 +85,6 @@ def discover_products(
     offset = (p - 1) * ps
     products = query.offset(offset).limit(ps).all()
 
-    # Enrich with artisan metadata
     output_items = []
     for prod in products:
         item = ProductPublicOut.model_validate(prod)
@@ -77,17 +96,19 @@ def discover_products(
         output_items.append(item)
 
     pages = (total + ps - 1) // ps if total > 0 else 1
+    paginated_data = PaginatedResponse(
+        items=output_items,
+        total=total,
+        page=p,
+        page_size=ps,
+        pages=pages,
+    )
+    cache.set_json(cache_key, paginated_data.model_dump(mode="json"), ttl_seconds=45)
 
     return APIResponse(
         success=True,
         message="Products retrieved successfully",
-        data=PaginatedResponse(
-            items=output_items,
-            total=total,
-            page=p,
-            page_size=ps,
-            pages=pages,
-        ),
+        data=paginated_data,
     )
 
 

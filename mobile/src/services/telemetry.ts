@@ -69,3 +69,4 @@ class ConsentGatedTelemetry {
 }
 
 export const telemetry = new ConsentGatedTelemetry();
+

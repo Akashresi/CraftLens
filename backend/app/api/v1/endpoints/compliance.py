@@ -2,13 +2,24 @@ from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, ConfigDict, Field
+from sqlalchemy import func
 from sqlalchemy.orm import Session
 
-from app.api.deps import get_current_active_user
+from app.api.deps import get_current_active_user, require_role
 from app.core.config import settings
 from app.core.upload_security import sanitize_text
 from app.db.session import get_db
-from app.models import ArtisanApplication, AuditLog, Buyer, ConsentRecord, GrievanceTicket, Order, User
+from app.models import (
+    ArtisanApplication,
+    ArtisanVerification,
+    AuditLog,
+    Buyer,
+    ConsentRecord,
+    GrievanceTicket,
+    Order,
+    Product,
+    User,
+)
 from app.schemas.common import APIResponse
 
 router = APIRouter()
@@ -345,4 +356,66 @@ def list_my_grievances(
         success=True,
         message="Grievance tickets retrieved",
         data=[GrievanceOut.model_validate(t) for t in tickets],
+    )
+
+
+@router.get("/admin/overview", response_model=APIResponse[dict])
+def get_admin_compliance_and_analytics_overview(
+    page: int = 1,
+    page_size: int = 20,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("ADMIN")),
+):
+    """Live Admin analytics + DPDP audit log feed (paginated)."""
+    p = max(1, page)
+    ps = min(100, max(1, page_size))
+
+    total_users = db.query(func.count(User.id)).scalar() or 0
+    total_products = db.query(func.count(Product.id)).scalar() or 0
+    total_orders = db.query(func.count(Order.id)).scalar() or 0
+    total_gmv = float(db.query(func.coalesce(func.sum(Order.total_amount), 0)).scalar() or 0.0)
+    pending_apps = (
+        db.query(func.count(ArtisanApplication.id)).filter(ArtisanApplication.status == "PENDING").scalar() or 0
+    )
+    pending_kyc = (
+        db.query(func.count(ArtisanVerification.id)).filter(ArtisanVerification.status == "PENDING").scalar() or 0
+    )
+    pending_gi = db.query(func.count(Product.id)).filter(Product.gi_verification_status == "PENDING").scalar() or 0
+    open_grievances = db.query(func.count(GrievanceTicket.id)).filter(GrievanceTicket.status == "OPEN").scalar() or 0
+
+    audit_total = db.query(func.count(AuditLog.id)).scalar() or 0
+    logs = db.query(AuditLog).order_by(AuditLog.created_at.desc()).offset((p - 1) * ps).limit(ps).all()
+
+    return APIResponse(
+        success=True,
+        message="Admin compliance & platform analytics retrieved",
+        data={
+            "metrics": {
+                "total_users": total_users,
+                "total_products": total_products,
+                "total_orders": total_orders,
+                "total_gmv_inr": round(total_gmv, 2),
+                "pending_applications": pending_apps,
+                "pending_kyc": pending_kyc,
+                "pending_gi_claims": pending_gi,
+                "open_grievances": open_grievances,
+            },
+            "audit_logs": {
+                "total": audit_total,
+                "page": p,
+                "page_size": ps,
+                "items": [
+                    {
+                        "id": log.id,
+                        "user_id": log.user_id,
+                        "action": log.action,
+                        "resource": log.resource,
+                        "ip_address": log.ip_address,
+                        "details": log.details,
+                        "created_at": log.created_at.isoformat(),
+                    }
+                    for log in logs
+                ],
+            },
+        },
     )

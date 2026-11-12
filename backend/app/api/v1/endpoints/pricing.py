@@ -4,6 +4,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.deps import require_role
+from app.core.cache import cache
 from app.db.session import get_db
 from app.models import AuditLog, Inventory, PricingHistory, Product, ProductVariant, User
 from app.schemas.common import APIResponse
@@ -142,6 +143,7 @@ def apply_pricing_to_product(
     # Set product status to active so it appears in the marketplace
     product.status = "ACTIVE"
     db.commit()
+    cache.invalidate_prefix("marketplace:")
 
     return APIResponse(
         success=True,

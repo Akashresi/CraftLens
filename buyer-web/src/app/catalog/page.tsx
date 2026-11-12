@@ -2,8 +2,11 @@
 
 import React, { useState, useEffect } from "react";
 import Link from "next/link";
-import { Search, Filter, ShieldCheck, ShoppingBag, Eye, Sparkles } from "lucide-react";
+import Image from "next/image";
+import { Search, Filter, ShieldCheck, ShoppingBag, Eye, AlertCircle, Loader2 } from "lucide-react";
 import { api } from "@/lib/api";
+import { useAuth } from "@/context/AuthContext";
+import { tWeb } from "@/lib/i18n";
 
 interface Product {
   id: string;
@@ -103,25 +106,58 @@ const CATEGORIES = [
 ];
 
 export default function CatalogPage() {
+  const { language } = useAuth();
   const [products, setProducts] = useState<Product[]>(FALLBACK_PRODUCTS);
   const [selectedCategory, setSelectedCategory] = useState("All Categories");
   const [searchQuery, setSearchQuery] = useState("");
   const [sortBy, setSortBy] = useState("newest");
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
+  const [apiError, setApiError] = useState<string | null>(null);
   const [cartSuccess, setCartSuccess] = useState<string | null>(null);
 
   useEffect(() => {
-    // Attempt fetch from backend marketplace API
-    api.get<{ items?: Product[] } | Product[]>("/marketplace/products")
+    let active = true;
+    setLoading(true);
+    setApiError(null);
+    api.get<{ items?: Record<string, unknown>[] } | Record<string, unknown>[]>("/marketplace/products")
       .then((data) => {
+        if (!active) return;
         const list = Array.isArray(data) ? data : data?.items;
         if (Array.isArray(list) && list.length > 0) {
-          setProducts(list);
+          const normalized: Product[] = list.map((raw: any) => ({
+            id: String(raw.id),
+            title: String(raw.title || "Handcrafted Item"),
+            description: raw.summary || raw.description || "",
+            category: String(raw.category?.name || raw.category || "Handicrafts"),
+            price: Number(raw.variants?.[0]?.price_retail ?? raw.price ?? 999),
+            fair_wage_amount: Math.round(Number(raw.variants?.[0]?.price_retail ?? raw.price ?? 999) * 0.65),
+            artisan_name: String(raw.artisan_name || "Verified Artisan"),
+            state: String(raw.artisan_city || raw.state || "India"),
+            gi_tag: raw.gi_claim_code || raw.gi_tag || undefined,
+            image_url:
+              raw.images?.[0]?.processed_url ||
+              raw.images?.[0]?.raw_url ||
+              raw.image_url ||
+              "https://images.unsplash.com/photo-1578749556568-bc2c40e68b61?auto=format&fit=crop&w=600&q=80",
+            stock_quantity: Number(raw.variants?.[0]?.stock_quantity ?? raw.stock_quantity ?? 5),
+          }));
+          setProducts(normalized);
         }
       })
-      .catch(() => {
-        // Fallback to verified seeded catalog
+      .catch((err) => {
+        if (!active) return;
+        setApiError(
+          err instanceof Error
+            ? `Live catalog unavailable (${err.message}); showing curated offline showcase.`
+            : "Live catalog unavailable; showing curated offline showcase."
+        );
+      })
+      .finally(() => {
+        if (active) setLoading(false);
       });
+    return () => {
+      active = false;
+    };
   }, []);
 
   const filteredProducts = products.filter((p) => {
@@ -148,16 +184,42 @@ export default function CatalogPage() {
     setTimeout(() => setCartSuccess(null), 3000);
   };
 
+  const productJsonLd = {
+    "@context": "https://schema.org",
+    "@type": "ItemList",
+    itemListElement: filteredProducts.slice(0, 12).map((p, idx) => ({
+      "@type": "ListItem",
+      position: idx + 1,
+      item: {
+        "@type": "Product",
+        name: p.title,
+        category: p.category,
+        image: p.image_url,
+        brand: { "@type": "Brand", name: p.artisan_name },
+        offers: {
+          "@type": "Offer",
+          priceCurrency: "INR",
+          price: p.price,
+          availability: p.stock_quantity > 0 ? "https://schema.org/InStock" : "https://schema.org/OutOfStock",
+        },
+      },
+    })),
+  };
+
   return (
     <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(productJsonLd) }}
+      />
       {/* Page Title & Search Bar */}
       <div className="flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-craft-text tracking-tight">
-            Discover Authentic Indian Crafts
+            {tWeb(language, "catalogTitle")}
           </h1>
           <p className="text-xs sm:text-sm text-craft-muted mt-1">
-            Every piece is verified for authentic GI heritage and fair living wage compliance.
+            {tWeb(language, "catalogSubtitle")}
           </p>
         </div>
 
@@ -166,13 +228,24 @@ export default function CatalogPage() {
           <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-craft-muted" />
           <input
             type="text"
-            placeholder="Search by craft, artisan or state..."
+            aria-label={tWeb(language, "searchPlaceholder")}
+            placeholder={tWeb(language, "searchPlaceholder")}
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             className="w-full pl-9 pr-4 py-2 rounded-lg bg-craft-surface border border-craft-border text-xs focus:outline-none focus:border-craft-primary"
           />
         </div>
       </div>
+
+      {apiError && (
+        <div
+          role="status"
+          className="p-3 bg-craft-surface border border-craft-border rounded-lg text-craft-muted text-xs flex items-center space-x-2"
+        >
+          <AlertCircle className="w-4 h-4 text-craft-secondary shrink-0" />
+          <span>{apiError}</span>
+        </div>
+      )}
 
       {/* Notification Toast */}
       {cartSuccess && (
@@ -218,9 +291,14 @@ export default function CatalogPage() {
       </div>
 
       {/* Product Grid */}
-      {filteredProducts.length === 0 ? (
+      {loading ? (
+        <div className="flex flex-col items-center justify-center py-16 bg-craft-surface rounded-xl border border-craft-border space-y-2">
+          <Loader2 className="w-6 h-6 animate-spin text-craft-primary" />
+          <p className="text-xs font-medium text-craft-muted">{tWeb(language, "loadingCrafts")}</p>
+        </div>
+      ) : filteredProducts.length === 0 ? (
         <div className="text-center py-16 bg-craft-surface rounded-xl border border-craft-border">
-          <p className="text-sm font-semibold text-craft-text">No crafts found matching your search</p>
+          <p className="text-sm font-semibold text-craft-text">{tWeb(language, "emptyCatalog")}</p>
           <p className="text-xs text-craft-muted mt-1">Try clearing filters or search terms</p>
           <button
             onClick={() => { setSelectedCategory("All Categories"); setSearchQuery(""); }}
@@ -238,11 +316,13 @@ export default function CatalogPage() {
             >
               <div>
                 {/* Image */}
-                <div className="h-56 overflow-hidden relative group">
-                  <img
+                <div className="h-56 overflow-hidden relative group bg-craft-background">
+                  <Image
                     src={p.image_url}
                     alt={p.title}
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-300"
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+                    className="object-cover group-hover:scale-105 transition-transform duration-300"
                   />
                   {p.gi_tag && (
                     <div className="absolute top-2 left-2 px-2.5 py-1 bg-craft-surface/90 backdrop-blur-md rounded-md text-[10px] font-bold text-craft-primary border border-craft-border flex items-center space-x-1 shadow-subtle">

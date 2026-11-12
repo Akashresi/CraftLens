@@ -36,3 +36,4 @@ def upgrade() -> None:
 def downgrade() -> None:
     op.drop_index(op.f("ix_idempotency_records_idempotency_key"), table_name="idempotency_records")
     op.drop_table("idempotency_records")
+

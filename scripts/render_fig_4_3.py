@@ -484,7 +484,7 @@ args = [
     "--disable-gpu",
     "--window-size=1400,900",
     f"--screenshot={out_img}",
-    "file:///D:/projects/KD/SIH26090/photos/fig_4_3.html"
+    "file:///D:/projects/KD/SIH26090/photos/fig_4_3.html",
 ]
 
 res = subprocess.run(args, capture_output=True, text=True)
@@ -492,4 +492,3 @@ print("Return code:", res.returncode)
 print("File exists:", os.path.exists(out_img))
 if os.path.exists(out_img):
     print("File size:", os.path.getsize(out_img), "bytes")
-

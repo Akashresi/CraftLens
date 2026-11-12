@@ -105,12 +105,17 @@ Methodology: **ACT -> VERIFY -> RECORD** (evidence required for every ticked ite
 ---
 
 ## PHASE 6: WEB, PERFORMANCE AND UX
-- [ ] `buyer-web`: SEO metadata, Schema.org Product JSON-LD, image optimization, loading/error/empty states, full language switching.
-- [ ] `admin-web`: live moderation queue, seller KYC verification, GI verification, analytics dashboard, audit log viewer.
-- [ ] Lighthouse checks / targets (Perf >= 85, A11y >= 95, SEO >= 90) or documented shortfall/plan.
-- [ ] Backend DB indexes, pagination everywhere, N+1 prevention, Redis caching for catalog reads.
-- [ ] Load test (Locust / k6) at 100 and 500 concurrent users -> `/docs/PERFORMANCE.md`.
-- [ ] **PHASE 6 GATE**
+- [x] `buyer-web`: SEO metadata, Schema.org Product JSON-LD, image optimization, loading/error/empty states, full language switching.
+  - Evidence: Added `sitemap.ts`, `robots.ts`, `/origins` cluster view, Schema.org ItemList + Product JSON-LD, `next/image` with responsive `sizes` on catalog cards, and 8-language switcher in `buyer-web/src/lib/i18n.ts`. Fixed API route alignments in `artisan/dashboard`. `cd buyer-web; pnpm typecheck; pnpm lint; pnpm build` -> exit 0 (16 static routes generated).
+- [x] `admin-web`: live moderation queue, seller KYC verification, GI verification, analytics dashboard, audit log viewer.
+  - Evidence: Connected `admin-web/src/app/page.tsx` to live backend APIs (`/artisans/admin/verifications`, `/artisans/admin/gi-claims`, `/compliance/admin/overview`). `cd admin-web; pnpm typecheck; pnpm lint; pnpm build` -> exit 0 (0 ESLint errors/warnings).
+- [x] Lighthouse checks / targets (Perf >= 85, A11y >= 95, SEO >= 90) or documented shortfall/plan.
+  - Evidence: Chrome / Lighthouse CLI is unavailable in the local Windows environment; targets (Perf >= 85, A11y >= 95, SEO >= 90), bundle sizes (102 kB shared JS), SSG pre-rendering, contrast ratios, and CI headless Lighthouse execution plan documented in `docs/PERFORMANCE.md`.
+- [x] Backend DB indexes, pagination everywhere, N+1 prevention, Redis caching for catalog reads.
+  - Evidence: Created `CraftCache` (`backend/app/core/cache.py`), added Alembic performance migration `f6b8d0e2c456` (`ix_products_status_created_at`, `ix_products_gi_verification_status`, `ix_orders_buyer_created_at`, `ix_audit_logs_created_at`), eliminated N+1 queries in `marketplace.py` via `joinedload`/`selectinload`. Verified in `test_perf_phase6.py`.
+- [x] Load test (Locust / k6) at 100 and 500 concurrent users -> `/docs/PERFORMANCE.md`.
+  - Evidence: Ran `python scripts/load_test.py` against live Uvicorn: 100 concurrency -> 133.0 RPS (p50: 327ms, p95: 647ms, 0% error); 500 concurrency -> 64.4 RPS (0% error). Measured metrics published in `docs/PERFORMANCE.md`.
+- [x] **PHASE 6 GATE PASSED**: `buyer-web` & `admin-web` builds green; `pytest` **51 passed, 90.51% coverage**; load benchmarks recorded in `docs/PERFORMANCE.md`.
 
 ---
 

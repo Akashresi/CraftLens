@@ -52,7 +52,7 @@ export default function ArtisanDashboardPage() {
 
   useEffect(() => {
     // Attempt fetch from backend
-    api.get("/business/metrics")
+    api.get("/business/dashboard")
       .then((data: any) => {
         if (data) setMetrics((prev) => ({ ...prev, ...data }));
       })
@@ -69,7 +69,7 @@ export default function ArtisanDashboardPage() {
     setChatLoading(true);
 
     try {
-      const res = await api.post<any>("/business/assistant/query", { query: q });
+      const res = await api.post<any>("/business/ask-assistant", { query: q, language: "en" });
       setChatMessages((prev) => [
         ...prev,
         {
@@ -95,7 +95,11 @@ export default function ArtisanDashboardPage() {
   const generateSocialPosts = async () => {
     setGeneratingMarketing(true);
     try {
-      const res = await api.post<any>("/business/marketing/generate", { topic: marketingTopic });
+      const res = await api.post<any>("/business/marketing-copy", {
+        product_title: marketingTopic,
+        target_audience: "global",
+        platform: "instagram",
+      });
       setGeneratedPosts({
         instagram:
           res.instagram ||

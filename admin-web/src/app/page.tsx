@@ -50,10 +50,40 @@ interface GIClaimItem {
   gi_reviewer_notes: string | null;
 }
 
+interface KYCVerificationItem {
+  id: string;
+  document_type: string;
+  document_number: string | null;
+  document_url: string;
+  status: "PENDING" | "APPROVED" | "REJECTED";
+  reviewer_notes: string | null;
+  created_at: string;
+}
+
+interface AuditLogItem {
+  id: string;
+  user_id: string | null;
+  action: string;
+  resource: string;
+  ip_address: string | null;
+  created_at: string;
+}
+
+interface OverviewMetrics {
+  total_users: number;
+  total_products: number;
+  total_orders: number;
+  total_gmv_inr: number;
+  pending_applications: number;
+  pending_kyc: number;
+  pending_gi_claims: number;
+  open_grievances: number;
+}
+
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
 
 export default function AdminDashboardPage() {
-  const [activeTab, setActiveTab] = useState<"applications" | "moderation" | "ai_health" | "compliance">("applications");
+  const [activeTab, setActiveTab] = useState<"applications" | "kyc" | "moderation" | "ai_health" | "compliance">("applications");
   
   // Real Applications State
   const [applications, setApplications] = useState<ArtisanApplication[]>([]);
@@ -75,8 +105,11 @@ export default function AdminDashboardPage() {
   const [isSubmittingAction, setIsSubmittingAction] = useState(false);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
 
-  // Real GI-Claim Moderation state
+  // Real GI-Claim Moderation, Seller KYC & Compliance Overview state
   const [giClaims, setGiClaims] = useState<GIClaimItem[]>([]);
+  const [kycVerifications, setKycVerifications] = useState<KYCVerificationItem[]>([]);
+  const [overviewMetrics, setOverviewMetrics] = useState<OverviewMetrics | null>(null);
+  const [auditLogs, setAuditLogs] = useState<AuditLogItem[]>([]);
 
   // Retrieve stored admin JWT token (never embed hardcoded credentials in client JS)
   const getAdminAuth = useCallback(async (): Promise<string | null> => {
@@ -174,28 +207,54 @@ export default function AdminDashboardPage() {
     }
   }, [getAdminAuth, statusFilter]);
 
-  const fetchGIClaims = useCallback(async () => {
+  const fetchAdminGovernanceQueues = useCallback(async () => {
     const token = await getAdminAuth();
     if (!token) return;
     try {
-      const res = await fetch(`${API_BASE_URL}/artisans/admin/gi-claims`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      if (res.ok) {
-        const json = await res.json();
-        if (json.success && Array.isArray(json.data)) {
-          setGiClaims(json.data);
+      const [giRes, kycRes, ovRes] = await Promise.all([
+        fetch(`${API_BASE_URL}/artisans/admin/gi-claims`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE_URL}/artisans/admin/verifications`, { headers: { Authorization: `Bearer ${token}` } }),
+        fetch(`${API_BASE_URL}/compliance/admin/overview`, { headers: { Authorization: `Bearer ${token}` } }),
+      ]);
+      if (giRes.ok) {
+        const j = await giRes.json();
+        if (j.success && Array.isArray(j.data)) setGiClaims(j.data);
+      }
+      if (kycRes.ok) {
+        const j = await kycRes.json();
+        if (j.success && Array.isArray(j.data)) setKycVerifications(j.data);
+      }
+      if (ovRes.ok) {
+        const j = await ovRes.json();
+        if (j.success && j.data) {
+          setOverviewMetrics(j.data.metrics || null);
+          setAuditLogs(j.data.audit_logs?.items || []);
         }
       }
     } catch {
-      // Keep quiet if offline; API error is surfaced by main queue
+      // Offline banner handled cleanly by fetchApplications
     }
   }, [getAdminAuth]);
 
+  const handleReviewKYC = async (verificationId: string, decision: "APPROVED" | "REJECTED") => {
+    const token = await getAdminAuth();
+    if (!token) return;
+    const res = await fetch(`${API_BASE_URL}/artisans/admin/verifications/${verificationId}/review`, {
+      method: "POST",
+      headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ status: decision, reviewer_notes: `Reviewed by Admin (${decision})` }),
+    });
+    if (res.ok) {
+      setKycVerifications((prev) =>
+        prev.map((v) => (v.id === verificationId ? { ...v, status: decision } : v))
+      );
+    }
+  };
+
   useEffect(() => {
     fetchApplications();
-    fetchGIClaims();
-  }, [fetchApplications, fetchGIClaims]);
+    fetchAdminGovernanceQueues();
+  }, [fetchApplications, fetchAdminGovernanceQueues]);
 
   // Handle Approve or Reject
   const handleConfirmDecision = async () => {
@@ -426,6 +485,16 @@ export default function AdminDashboardPage() {
           }`}>
             {pendingCount}
           </span>
+        </button>
+        <button
+          onClick={() => setActiveTab("kyc")}
+          className={`pb-3 transition-colors ${
+            activeTab === "kyc"
+              ? "border-b-2 border-craft-primary text-craft-primary font-bold"
+              : "text-craft-muted hover:text-craft-text"
+          }`}
+        >
+          Seller KYC ({kycVerifications.filter((v) => v.status === "PENDING").length})
         </button>
         <button
           onClick={() => setActiveTab("moderation")}
@@ -788,6 +857,54 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
+      {/* Tab 1b: Seller KYC Queue */}
+      {activeTab === "kyc" && (
+        <div className="bg-craft-surface border border-craft-border rounded-xl overflow-hidden shadow-subtle">
+          <div className="p-4 bg-craft-background/50 border-b border-craft-border flex justify-between items-center">
+            <h3 className="font-bold text-sm text-craft-text">Artisan Seller KYC Verifications</h3>
+            <span className="text-xs text-craft-muted">PAN / Pehchan / Masked Aadhaar Review</span>
+          </div>
+          <div className="divide-y divide-craft-border">
+            {kycVerifications.length === 0 ? (
+              <div className="p-8 text-center text-xs text-craft-muted">
+                No seller KYC verification submissions found.
+              </div>
+            ) : (
+              kycVerifications.map((ver) => (
+                <div key={ver.id} className="p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                  <div className="space-y-1 text-xs">
+                    <div className="font-bold text-craft-text">
+                      {ver.document_type} &bull; {ver.document_number || "Uploaded ID"}
+                    </div>
+                    <div className="text-craft-muted">{ver.reviewer_notes || "Submitted for verification"}</div>
+                  </div>
+                  <div className="flex items-center space-x-2">
+                    {ver.status === "PENDING" ? (
+                      <>
+                        <button
+                          onClick={() => handleReviewKYC(ver.id, "APPROVED")}
+                          className="px-3 py-1.5 rounded-lg bg-craft-primary text-white text-xs font-semibold hover:bg-craft-primary-dark"
+                        >
+                          Verify KYC
+                        </button>
+                        <button
+                          onClick={() => handleReviewKYC(ver.id, "REJECTED")}
+                          className="px-3 py-1.5 rounded-lg border border-craft-border text-craft-error text-xs font-semibold"
+                        >
+                          Reject
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-xs font-bold text-craft-primary">{ver.status}</span>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Tab 2: Catalog Moderation */}
       {activeTab === "moderation" && (
         <div className="bg-craft-surface border border-craft-border rounded-xl overflow-hidden shadow-subtle">
@@ -901,43 +1018,69 @@ export default function AdminDashboardPage() {
         </div>
       )}
 
-      {/* Tab 4: Compliance */}
+      {/* Tab 4: Compliance & Platform Analytics */}
       {activeTab === "compliance" && (
         <div className="bg-craft-surface border border-craft-border rounded-xl p-6 shadow-subtle space-y-4">
           <div className="flex items-center space-x-2 border-b border-craft-border pb-3">
             <FileCheck className="w-4 h-4 text-craft-primary" />
-            <h3 className="font-bold text-sm text-craft-text">Digital Personal Data Protection (DPDP) Act 2023 Audit Log</h3>
+            <h3 className="font-bold text-sm text-craft-text">Live Platform Analytics &amp; Immutable DPDP Audit Log</h3>
           </div>
-          <p className="text-xs text-craft-muted">
-            All voice recordings, Aadhaar hashes, and artisan personal data are stored under informed consent and end-to-end encryption.
-          </p>
+          {overviewMetrics && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3 text-xs">
+              <div className="p-3 bg-craft-background rounded-lg border border-craft-border">
+                <div className="text-craft-muted">Total Users / Products</div>
+                <div className="font-extrabold text-sm text-craft-text mt-1">
+                  {overviewMetrics.total_users} / {overviewMetrics.total_products}
+                </div>
+              </div>
+              <div className="p-3 bg-craft-background rounded-lg border border-craft-border">
+                <div className="text-craft-muted">Orders / GMV (INR)</div>
+                <div className="font-extrabold text-sm text-craft-primary mt-1">
+                  {overviewMetrics.total_orders} / ₹{overviewMetrics.total_gmv_inr.toLocaleString("en-IN")}
+                </div>
+              </div>
+              <div className="p-3 bg-craft-background rounded-lg border border-craft-border">
+                <div className="text-craft-muted">Pending KYC / GI</div>
+                <div className="font-extrabold text-sm text-craft-secondary mt-1">
+                  {overviewMetrics.pending_kyc} / {overviewMetrics.pending_gi_claims}
+                </div>
+              </div>
+              <div className="p-3 bg-craft-background rounded-lg border border-craft-border">
+                <div className="text-craft-muted">Open Grievances</div>
+                <div className="font-extrabold text-sm text-craft-text mt-1">
+                  {overviewMetrics.open_grievances}
+                </div>
+              </div>
+            </div>
+          )}
 
           <div className="overflow-x-auto">
             <table className="w-full text-left text-xs border border-craft-border">
               <thead className="bg-craft-background text-craft-muted uppercase text-[10px]">
                 <tr>
                   <th className="p-2.5 border-b border-craft-border">Timestamp</th>
-                  <th className="p-2.5 border-b border-craft-border">User / Artisan</th>
-                  <th className="p-2.5 border-b border-craft-border">Consent Purpose</th>
-                  <th className="p-2.5 border-b border-craft-border">Status</th>
-                  <th className="p-2.5 border-b border-craft-border">Signature SHA-256</th>
+                  <th className="p-2.5 border-b border-craft-border">Action</th>
+                  <th className="p-2.5 border-b border-craft-border">Resource</th>
+                  <th className="p-2.5 border-b border-craft-border">IP Address</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-craft-border font-mono text-[11px]">
-                <tr>
-                  <td className="p-2.5">2026-11-04 18:22:10</td>
-                  <td>Meenakshi Sundaram</td>
-                  <td className="font-sans">Voice Cataloging & Audio Training Consent</td>
-                  <td className="text-craft-success font-sans font-bold">GRANTED</td>
-                  <td className="text-craft-muted truncate max-w-[120px]">9f83ac27...</td>
-                </tr>
-                <tr>
-                  <td className="p-2.5">2026-11-04 17:15:02</td>
-                  <td>Ramanathan Weavers</td>
-                  <td className="font-sans">Direct Payout Bank Account Verification</td>
-                  <td className="text-craft-success font-sans font-bold">GRANTED</td>
-                  <td className="text-craft-muted truncate max-w-[120px]">3b72c9a1...</td>
-                </tr>
+                {auditLogs.length === 0 ? (
+                  <tr>
+                    <td colSpan={4} className="p-4 text-center text-craft-muted font-sans">
+                      No audit events recorded yet.
+                    </td>
+                  </tr>
+                ) : (
+                  auditLogs.map((log) => (
+                    <tr key={log.id}>
+                      <td className="p-2.5">{new Date(log.created_at).toLocaleString()}</td>
+                      <td className="font-sans font-semibold text-craft-primary">{log.action}</td>
+                      <td>{log.resource}</td>
+                      <td className="text-craft-muted">{log.ip_address || "internal"}</td>
+                    </tr>
+                  ))
+                )}
               </tbody>
             </table>
           </div>

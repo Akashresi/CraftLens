@@ -4,9 +4,26 @@ import Navbar from "@/components/Navbar";
 import { AuthProvider } from "@/context/AuthContext";
 
 export const metadata: Metadata = {
-  title: "CraftLens 2.0 | Empowering Artisans with AI & Direct Global Trade",
+  title: {
+    default: "CraftLens 2.0 | Empowering Artisans with AI & Direct Global Trade",
+    template: "%s | CraftLens 2.0",
+  },
   description:
     "AI-powered digital business manager and global marketplace platform for marginalized artisans, traditional craftspeople, and craft cooperatives.",
+  keywords: [
+    "Indian handicrafts",
+    "GI tagged crafts",
+    "direct from artisan",
+    "Kanchipuram silk",
+    "Dhokra craft",
+    "fair trade India",
+  ],
+  openGraph: {
+    title: "CraftLens 2.0 | Authentic Handmade Indian Crafts",
+    description: "Direct-to-buyer marketplace anchored by Ed25519 QR provenance and living-wage pricing.",
+    type: "website",
+    locale: "en_IN",
+  },
 };
 
 export default function RootLayout({

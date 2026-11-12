@@ -3,16 +3,10 @@
 import React, { useState } from "react";
 import Link from "next/link";
 import { useAuth } from "../context/AuthContext";
+import { SUPPORTED_WEB_LANGUAGES, tWeb } from "@/lib/i18n";
 import { Globe, ShoppingBag, User as UserIcon, LogOut, Sparkles } from "lucide-react";
 
-const LANGUAGES = [
-  { code: "ta", label: "தமிழ்" },
-  { code: "hi", label: "हिंदी" },
-  { code: "en", label: "English" },
-  { code: "te", label: "తెలుగు" },
-  { code: "kn", label: "ಕನ್ನಡ" },
-  { code: "ml", label: "മലയാളം" },
-];
+const LANGUAGES = SUPPORTED_WEB_LANGUAGES;
 
 export default function Navbar() {
   const { user, logout, language, setLanguage } = useAuth();
@@ -44,20 +38,20 @@ export default function Navbar() {
           {/* Navigation Links */}
           <div className="hidden md:flex items-center space-x-6 text-sm font-medium text-craft-text">
             <Link href="/catalog" className="hover:text-craft-primary transition-colors">
-              Discover Crafts
+              {tWeb(language, "discoverCrafts")}
             </Link>
             <Link href="/origins" className="hover:text-craft-primary transition-colors">
-              Heritage Origins
+              {tWeb(language, "heritageOrigins")}
             </Link>
             <Link href="/b2b" className="hover:text-craft-primary transition-colors">
-              Wholesale & B2B
+              {tWeb(language, "wholesaleB2B")}
             </Link>
             {isArtisan && (
               <Link
                 href="/artisan/dashboard"
                 className="text-craft-secondary font-semibold hover:underline"
               >
-                Artisan Studio
+                {tWeb(language, "artisanStudio")}
               </Link>
             )}
             {isAdmin && (
