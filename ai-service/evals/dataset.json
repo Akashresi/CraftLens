@@ -1,0 +1,241 @@
+{
+  "metadata": {
+    "version": "1.0.0",
+    "languages": ["ta", "hi", "te", "kn", "ml", "bn", "mr", "en"],
+    "categories": [
+      "handloom-textiles",
+      "terracotta-pottery",
+      "woodcraft-toys",
+      "metal-brassware",
+      "cane-bamboo",
+      "traditional-painting"
+    ]
+  },
+  "asr_and_listing_cases": [
+    {
+      "id": "ta_01",
+      "language": "ta",
+      "spoken_transcript": "இது காஞ்சிபுரம் பட்டுப் புடவை, கைத்தறி நெசவு செய்தது.",
+      "reference_transcript": "இது காஞ்சிபுரம் பட்டுப் புடவை கைத்தறி நெசவு செய்தது",
+      "expected_category": "handloom-textiles",
+      "expected_material_keyword": "silk",
+      "specialization": "Kanchipuram Silk Weaving"
+    },
+    {
+      "id": "ta_02",
+      "language": "ta",
+      "spoken_transcript": "சுத்தமான களிமண் பானை, கையால் வனைந்தது.",
+      "reference_transcript": "சுத்தமான களிமண் பானை கையால் வனைந்தது",
+      "expected_category": "terracotta-pottery",
+      "expected_material_keyword": "clay",
+      "specialization": "Terracotta Pottery"
+    },
+    {
+      "id": "hi_01",
+      "language": "hi",
+      "spoken_transcript": "यह बनारसी रेशम की साड़ी है जिसे हथकरघा पर बुना गया है।",
+      "reference_transcript": "यह बनारसी रेशम की साड़ी है जिसे हथकरघा पर बुना गया है",
+      "expected_category": "handloom-textiles",
+      "expected_material_keyword": "silk",
+      "specialization": "Banarasi Handloom"
+    },
+    {
+      "id": "hi_02",
+      "language": "hi",
+      "spoken_transcript": "पीतल की हस्तनिर्मित मूर्ति और दिया, ढोकरा कला।",
+      "reference_transcript": "पीतल की हस्तनिर्मित मूर्ति और दिया ढोकरा कला",
+      "expected_category": "metal-brassware",
+      "expected_material_keyword": "brass",
+      "specialization": "Dhokra Brass Craft"
+    },
+    {
+      "id": "te_01",
+      "language": "te",
+      "spoken_transcript": "ఇది చేతితో తయారు చేసిన పట్టు చీర.",
+      "reference_transcript": "ఇది చేతితో తయారు చేసిన పట్టు చీర",
+      "expected_category": "handloom-textiles",
+      "expected_material_keyword": "silk",
+      "specialization": "Pochampally Weaving"
+    },
+    {
+      "id": "te_02",
+      "language": "te",
+      "spoken_transcript": "కొండపల్లి కొయ్య బొమ్మ, సహజ రంగులతో వేసింది.",
+      "reference_transcript": "కొండపల్లి కొయ్య బొమ్మ సహజ రంగులతో వేసింది",
+      "expected_category": "woodcraft-toys",
+      "expected_material_keyword": "wood",
+      "specialization": "Kondapalli Woodcraft"
+    },
+    {
+      "id": "kn_01",
+      "language": "kn",
+      "spoken_transcript": "ಚನ್ನಪಟ್ಟಣದ ಮರದ ಗೊಂಬೆ, ನೈಸರ್ಗಿಕ ಬಣ್ಣ.",
+      "reference_transcript": "ಚನ್ನಪಟ್ಟಣದ ಮರದ ಗೊಂಬೆ ನೈಸರ್ಗಿಕ ಬಣ್ಣ",
+      "expected_category": "woodcraft-toys",
+      "expected_material_keyword": "wood",
+      "specialization": "Channapatna Lacquerware"
+    },
+    {
+      "id": "kn_02",
+      "language": "kn",
+      "spoken_transcript": "ಶುದ್ಧ ಮಣ್ಣು ಮಡಿಕೆ, ಕೈಯಿಂದ ಮಾಡಿದ ಕುಂಬಾರಿಕೆ.",
+      "reference_transcript": "ಶುದ್ಧ ಮಣ್ಣು ಮಡಿಕೆ ಕೈಯಿಂದ ಮಾಡಿದ ಕುಂಬಾರಿಕೆ",
+      "expected_category": "terracotta-pottery",
+      "expected_material_keyword": "clay",
+      "specialization": "Terracotta Pottery"
+    },
+    {
+      "id": "ml_01",
+      "language": "ml",
+      "spoken_transcript": "കൈത്തറിയിൽ നെയ്ത പട്ട് സാരി, പരമ്പരാഗത ഡിസൈൻ.",
+      "reference_transcript": "കൈത്തറിയിൽ നെയ്ത പട്ട് സാരി പരമ്പരാഗത ഡിസൈൻ",
+      "expected_category": "handloom-textiles",
+      "expected_material_keyword": "silk",
+      "specialization": "Balaramapuram Handloom"
+    },
+    {
+      "id": "ml_02",
+      "language": "ml",
+      "spoken_transcript": "മുളകൊണ്ട് നിർമ്മിച്ച പരമ്പരാഗത കൊട്ട.",
+      "reference_transcript": "മുളകൊണ്ട് നിർമ്മിച്ച പരമ്പരാഗത കൊട്ട",
+      "expected_category": "cane-bamboo",
+      "expected_material_keyword": "bamboo",
+      "specialization": "Cane & Bamboo Weaving"
+    },
+    {
+      "id": "bn_01",
+      "language": "bn",
+      "spoken_transcript": "এটি হাতে বোনা রেশম শাড়ি, বাংলার ঐতিহ্য।",
+      "reference_transcript": "এটি হাতে বোনা রেশম শাড়ি বাংলার ঐতিহ্য",
+      "expected_category": "handloom-textiles",
+      "expected_material_keyword": "silk",
+      "specialization": "Tant & Baluchari Saree"
+    },
+    {
+      "id": "bn_02",
+      "language": "bn",
+      "spoken_transcript": "বাঁকুড়ার পোড়ামাটি ও মৃৎশিল্পের ঘোড়া।",
+      "reference_transcript": "বাঁকুড়ার পোড়ামাটি ও মৃৎশিল্পের ঘোড়া",
+      "expected_category": "terracotta-pottery",
+      "expected_material_keyword": "clay",
+      "specialization": "Bankura Terracotta"
+    },
+    {
+      "id": "mr_01",
+      "language": "mr",
+      "spoken_transcript": "ही हातमागावर विणलेली पैठणी रेशीम साडी आहे.",
+      "reference_transcript": "ही हातमागावर विणलेली पैठणी रेशीम साडी आहे",
+      "expected_category": "handloom-textiles",
+      "expected_material_keyword": "silk",
+      "specialization": "Paithani Weaving"
+    },
+    {
+      "id": "mr_02",
+      "language": "mr",
+      "spoken_transcript": "वारली चित्रकला हाताने रंगवलेले कापड.",
+      "reference_transcript": "वारली चित्रकला हाताने रंगवलेले कापड",
+      "expected_category": "traditional-painting",
+      "expected_material_keyword": "pigment",
+      "specialization": "Warli Folk Painting"
+    },
+    {
+      "id": "en_01",
+      "language": "en",
+      "spoken_transcript": "Handcrafted bamboo basket woven with seasoned cane strips from Assam.",
+      "reference_transcript": "Handcrafted bamboo basket woven with seasoned cane strips from Assam",
+      "expected_category": "cane-bamboo",
+      "expected_material_keyword": "bamboo",
+      "specialization": "Assam Bamboo Craft"
+    },
+    {
+      "id": "en_02",
+      "language": "en",
+      "spoken_transcript": "Traditional brass diya oil lamp cast using lost-wax Dhokra technique.",
+      "reference_transcript": "Traditional brass diya oil lamp cast using lost wax Dhokra technique",
+      "expected_category": "metal-brassware",
+      "expected_material_keyword": "brass",
+      "specialization": "Bell Metal & Brassware"
+    }
+  ],
+  "pricing_cases": [
+    {
+      "id": "price_01",
+      "name": "Kanchipuram Pure Silk Saree",
+      "material_cost": 1800.0,
+      "labor_hours": 18.0,
+      "labor_hourly_rate": 140.0,
+      "packaging_cost": 120.0,
+      "transportation_cost": 80.0,
+      "overhead_cost": 100.0,
+      "heritage_rarity_score": 1.25,
+      "region_state": "Tamil Nadu",
+      "reference_retail_inr": 7370.0
+    },
+    {
+      "id": "price_02",
+      "name": "Channapatna Lacquer Wood Toy Set",
+      "material_cost": 180.0,
+      "labor_hours": 4.0,
+      "labor_hourly_rate": 160.0,
+      "packaging_cost": 40.0,
+      "transportation_cost": 30.0,
+      "overhead_cost": 20.0,
+      "heritage_rarity_score": 1.1,
+      "region_state": "Karnataka",
+      "reference_retail_inr": 1385.0
+    },
+    {
+      "id": "price_03",
+      "name": "Bankura Terracotta Horse",
+      "material_cost": 90.0,
+      "labor_hours": 5.0,
+      "labor_hourly_rate": 130.0,
+      "packaging_cost": 60.0,
+      "transportation_cost": 50.0,
+      "overhead_cost": 35.0,
+      "heritage_rarity_score": 1.15,
+      "region_state": "West Bengal",
+      "reference_retail_inr": 1420.0
+    },
+    {
+      "id": "price_04",
+      "name": "Warli Natural Pigment Wall Canvas",
+      "material_cost": 350.0,
+      "labor_hours": 10.0,
+      "labor_hourly_rate": 165.0,
+      "packaging_cost": 90.0,
+      "transportation_cost": 60.0,
+      "overhead_cost": 50.0,
+      "heritage_rarity_score": 1.2,
+      "region_state": "Maharashtra",
+      "reference_retail_inr": 3380.0
+    },
+    {
+      "id": "price_05",
+      "name": "Dhokra Lost-Wax Brass Figurine",
+      "material_cost": 420.0,
+      "labor_hours": 8.0,
+      "labor_hourly_rate": 135.0,
+      "packaging_cost": 70.0,
+      "transportation_cost": 50.0,
+      "overhead_cost": 60.0,
+      "heritage_rarity_score": 1.3,
+      "region_state": "Chhattisgarh",
+      "reference_retail_inr": 2436.0
+    },
+    {
+      "id": "price_06",
+      "name": "Nilambur Bamboo Woven Hamper",
+      "material_cost": 160.0,
+      "labor_hours": 4.5,
+      "labor_hourly_rate": 150.0,
+      "packaging_cost": 50.0,
+      "transportation_cost": 45.0,
+      "overhead_cost": 25.0,
+      "heritage_rarity_score": 1.05,
+      "region_state": "Kerala",
+      "reference_retail_inr": 1606.0
+    }
+  ]
+}
+

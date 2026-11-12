@@ -68,3 +68,4 @@
 - **Rate Limiter Storage**: Default `SlidingWindowRateLimiter` uses process-local memory; multi-worker production deployments must configure shared Redis storage (wired in Operations/Phase 6–7).
 - **Antivirus Daemon**: Malware hook checks EICAR test signatures inline and streams to `clamd` when `CLAMAV_HOST` is set; if `CLAMAV_HOST` is empty (dev/CI), external virus scanning is skipped and documented.
 - **Next.js Transitive `postcss`**: `buyer-web` and `admin-web` use `next@15.5.29` (0 critical CVEs); Next's internal `postcss` package triggers 2 moderate / 2 high advisory notices during build-time CSS processing only.
+

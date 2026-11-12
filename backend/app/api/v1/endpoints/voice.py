@@ -79,9 +79,13 @@ def apply_catalog_to_product(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("ARTISAN")),
 ):
-    """Persists verified catalog data into a new or existing Product entity,
-    creating translation records in English, Hindi, and regional languages.
-    """
+    """Persists artisan-confirmed catalog data as a DRAFT product (never auto-published)."""
+    require_role("ARTISAN")(current_user)
+    if not payload.artisan_confirmed:
+        raise HTTPException(
+            status_code=400,
+            detail="Artisan review and explicit confirmation is required before creating a product listing.",
+        )
     profile = db.query(ArtisanProfile).filter(ArtisanProfile.user_id == current_user.id).first()
     if not profile:
         raise HTTPException(status_code=404, detail="Artisan profile not found")

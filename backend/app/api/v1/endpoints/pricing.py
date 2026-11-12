@@ -5,7 +5,7 @@ from sqlalchemy.orm import Session
 
 from app.api.deps import require_role
 from app.db.session import get_db
-from app.models import Inventory, PricingHistory, Product, ProductVariant, User
+from app.models import AuditLog, Inventory, PricingHistory, Product, ProductVariant, User
 from app.schemas.common import APIResponse
 from app.schemas.pricing import PricingCalculateIn, PricingEstimateOut, SavePricingIn
 from app.services.pricing_engine import compute_craft_pricing
@@ -33,6 +33,7 @@ def calculate_price_breakdown(
         heritage_rarity_score=pricing_in.heritage_rarity_score,
         category_slug=pricing_in.category_slug,
         db=db,
+        region_state=pricing_in.region_state,
     )
     return APIResponse(
         success=True,
@@ -87,16 +88,53 @@ def apply_pricing_to_product(
             low_stock_threshold=3,
         )
         db.add(inv)
+        if (
+            pricing_in.recommended_retail_price is not None
+            and abs(float(pricing_in.retail_price) - float(pricing_in.recommended_retail_price)) > 0.01
+        ):
+            db.add(
+                PricingHistory(
+                    product_id=product.id,
+                    changed_by_user_id=current_user.id,
+                    old_retail_price=pricing_in.recommended_retail_price,
+                    new_retail_price=pricing_in.retail_price,
+                    reason=pricing_in.override_reason or "Artisan override of AI recommended price",
+                )
+            )
+            db.add(
+                AuditLog(
+                    user_id=current_user.id,
+                    action="PRICE_OVERRIDE_LOGGED",
+                    resource=f"product:{product.id}",
+                    details={
+                        "recommended_retail": pricing_in.recommended_retail_price,
+                        "chosen_retail": pricing_in.retail_price,
+                        "reason": pricing_in.override_reason or "Artisan override",
+                    },
+                )
+            )
     else:
-        # Record pricing change in pricing_history
+        # Record pricing change in pricing_history & audit log
         hist = PricingHistory(
             product_id=product.id,
             changed_by_user_id=current_user.id,
             old_retail_price=variant.price_retail,
             new_retail_price=pricing_in.retail_price,
-            reason="Artisan adjusted pricing recommendation",
+            reason=pricing_in.override_reason or "Artisan adjusted pricing recommendation",
         )
         db.add(hist)
+        db.add(
+            AuditLog(
+                user_id=current_user.id,
+                action="PRICE_OVERRIDE_LOGGED",
+                resource=f"product:{product.id}",
+                details={
+                    "previous_retail": float(variant.price_retail),
+                    "chosen_retail": pricing_in.retail_price,
+                    "reason": pricing_in.override_reason or "Artisan price update",
+                },
+            )
+        )
         variant.price_retail = pricing_in.retail_price
         variant.price_wholesale = pricing_in.wholesale_price
         variant.stock_quantity = pricing_in.stock_quantity

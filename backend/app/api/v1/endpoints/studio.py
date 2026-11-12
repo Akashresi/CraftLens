@@ -2,16 +2,16 @@ import os
 import time
 import uuid
 
-from fastapi import APIRouter, Depends, File, Form, UploadFile
-from sqlalchemy.orm import Session
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile, status
+from sqlalchemy.orm import Session, sessionmaker
 
 from app.api.deps import require_role
 from app.core.rate_limit import rate_limit
 from app.core.upload_security import validate_and_sanitize_image
-from app.db.session import get_db
-from app.models import ImageProcessingJob, User
+from app.db.session import SessionLocal, get_db
+from app.models import AIJob, ImageProcessingJob, User
 from app.schemas.common import APIResponse
-from app.schemas.studio import QualityAnalysisOut, StudioProcessResult
+from app.schemas.studio import AsyncJobStatusOut, QualityAnalysisOut, StudioProcessResult
 from app.services.image_studio import (
     analyze_image_quality,
     correct_lighting_and_color,
@@ -19,6 +19,7 @@ from app.services.image_studio import (
     generate_studio_white_background,
     remove_product_background,
 )
+from app.services.job_queue import enqueue_studio_job
 
 router = APIRouter()
 
@@ -128,5 +129,79 @@ def process_product_photo(
             quality_score=quality_score,
             latency_ms=elapsed_ms,
             status="COMPLETED",
+        ),
+    )
+
+
+@router.post(
+    "/process-async",
+    response_model=APIResponse[AsyncJobStatusOut],
+    dependencies=[Depends(rate_limit("studio_upload", max_requests=20, window_seconds=60))],
+)
+def process_product_photo_async(
+    file: UploadFile = File(...),
+    lifestyle_theme: str = Form("wood"),
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("ARTISAN")),
+):
+    """Enqueues product photo enhancement into the async Redis/ThreadPool job queue."""
+    require_role("ARTISAN")(current_user)
+    raw_bytes = validate_and_sanitize_image(file.file.read())
+
+    file_id = str(uuid.uuid4())
+    orig_path = f"{UPLOAD_BASE}/original/{file_id}.jpg"
+    with open(orig_path, "wb") as f:
+        f.write(raw_bytes)
+    original_url = f"/uploads/original/{file_id}.jpg"
+
+    bind = db.get_bind()
+    session_factory = sessionmaker(autocommit=False, autoflush=False, bind=bind) if bind is not None else SessionLocal
+    job = enqueue_studio_job(
+        user_id=current_user.id,
+        raw_bytes=raw_bytes,
+        lifestyle_theme=lifestyle_theme,
+        upload_base=UPLOAD_BASE,
+        original_url=original_url,
+        db=db,
+        session_factory=session_factory,
+    )
+    return APIResponse(
+        success=True,
+        message="Studio processing job queued",
+        data=AsyncJobStatusOut(
+            job_id=job.id,
+            job_type=job.job_type,
+            status=job.status,
+            attempts=1,
+            result=job.result if isinstance(job.result, dict) else None,
+        ),
+    )
+
+
+@router.get("/jobs/{job_id}", response_model=APIResponse[AsyncJobStatusOut])
+def get_studio_job_status(
+    job_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(require_role("ARTISAN")),
+):
+    """Polls status and output URLs for an async studio AI job (owner or ADMIN only)."""
+    job = db.query(AIJob).filter(AIJob.id == job_id).first()
+    if not job:
+        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="AI job not found")
+    roles = [r.code for r in current_user.roles]
+    if job.user_id != current_user.id and "ADMIN" not in roles:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to access this job")
+
+    result_dict = job.result if isinstance(job.result, dict) else {}
+    return APIResponse(
+        success=True,
+        message="Job status fetched",
+        data=AsyncJobStatusOut(
+            job_id=job.id,
+            job_type=job.job_type,
+            status=job.status,
+            attempts=int(result_dict.get("attempts", 1)) if result_dict else 1,
+            result=result_dict or None,
+            error_message=result_dict.get("error") if job.status == "FAILED" else None,
         ),
     )

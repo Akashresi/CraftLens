@@ -74,3 +74,4 @@ def downgrade() -> None:
     op.drop_column("users", "is_anonymized")
     op.drop_column("users", "locked_until")
     op.drop_column("users", "failed_login_attempts")
+

@@ -91,3 +91,4 @@ CraftLens 2.0 is a strong **hackathon prototype** with a well-structured SQLAlch
 2. **Critical CVEs in Next.js 14** (Phase 1/2): `next@14.2.35` has 3 critical RCE advisories; requires upgrade to patched Next.js 15.x or latest patched LTS.
 3. **Hardcoded Secrets & Weak Provenance** (Phase 2): Dev `SECRET_KEY` in code, client-side hardcoded admin password in `admin-web`, SHA-256 QR without Ed25519 signature, missing IDOR checks, missing rate limiting, and unvalidated file uploads.
 4. **Silent Stubs Misrepresented as Working** (Phase 3/4/5): Simulated mobile studio/voice/orders, hardcoded ASR return string, in-memory offline sync, fake checkout payment/shipment creation.
+
