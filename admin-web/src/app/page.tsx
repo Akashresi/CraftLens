@@ -41,36 +41,14 @@ interface ArtisanApplication {
   updated_at: string;
 }
 
-interface ModerationItem {
-  id: string;
-  title: string;
-  artisan: string;
-  materials: string;
-  gi_claim: string;
-  image_quality_score: number;
-  status: "PENDING" | "APPROVED" | "REJECTED";
+interface GIClaimItem {
+  product_id: string;
+  product_title: string;
+  artisan_name: string;
+  gi_claim_code: string | null;
+  gi_verification_status: "NONE" | "PENDING" | "APPROVED" | "REJECTED";
+  gi_reviewer_notes: string | null;
 }
-
-const INITIAL_MODERATION: ModerationItem[] = [
-  {
-    id: "mod-1",
-    title: "Hand-turned Earthen Clay Water Jug with Natural Terracotta Glaze",
-    artisan: "Meenakshi Sundaram",
-    materials: "River silt, husk, organic natural dyes (Verified: No synthetic chemicals)",
-    gi_claim: "GI-TN-412 (Vilachery)",
-    image_quality_score: 96,
-    status: "PENDING",
-  },
-  {
-    id: "mod-2",
-    title: "Pure Zari Korvai Temple Border Silk Stole",
-    artisan: "Kanchipuram Society",
-    materials: "100% Mulberry Silk, Tested Silver Zari",
-    gi_claim: "GI-TN-001 (Kanchipuram Silk)",
-    image_quality_score: 98,
-    status: "PENDING",
-  },
-];
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || "http://127.0.0.1:8000/api/v1";
 
@@ -97,8 +75,8 @@ export default function AdminDashboardPage() {
   const [isSubmittingAction, setIsSubmittingAction] = useState(false);
   const [actionSuccessMessage, setActionSuccessMessage] = useState<string | null>(null);
 
-  // Moderation state
-  const [products, setProducts] = useState<ModerationItem[]>(INITIAL_MODERATION);
+  // Real GI-Claim Moderation state
+  const [giClaims, setGiClaims] = useState<GIClaimItem[]>([]);
 
   // Retrieve stored admin JWT token (never embed hardcoded credentials in client JS)
   const getAdminAuth = useCallback(async (): Promise<string | null> => {
@@ -196,9 +174,28 @@ export default function AdminDashboardPage() {
     }
   }, [getAdminAuth, statusFilter]);
 
+  const fetchGIClaims = useCallback(async () => {
+    const token = await getAdminAuth();
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/artisans/admin/gi-claims`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const json = await res.json();
+        if (json.success && Array.isArray(json.data)) {
+          setGiClaims(json.data);
+        }
+      }
+    } catch {
+      // Keep quiet if offline; API error is surfaced by main queue
+    }
+  }, [getAdminAuth]);
+
   useEffect(() => {
     fetchApplications();
-  }, [fetchApplications]);
+    fetchGIClaims();
+  }, [fetchApplications, fetchGIClaims]);
 
   // Handle Approve or Reject
   const handleConfirmDecision = async () => {
@@ -245,10 +242,29 @@ export default function AdminDashboardPage() {
     }
   };
 
-  const handleModerateProduct = (id: string, newStatus: "APPROVED" | "REJECTED") => {
-    setProducts((prev) =>
-      prev.map((p) => (p.id === id ? { ...p, status: newStatus } : p))
-    );
+  const handleModerateGIClaim = async (productId: string, newStatus: "APPROVED" | "REJECTED") => {
+    const token = await getAdminAuth();
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/artisans/admin/gi-claims/${productId}/review`, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          status: newStatus,
+          reviewer_notes: `Reviewed via Admin Governance Portal (${newStatus})`,
+        }),
+      });
+      if (res.ok) {
+        setGiClaims((prev) =>
+          prev.map((c) => (c.product_id === productId ? { ...c, gi_verification_status: newStatus } : c))
+        );
+      }
+    } catch (err) {
+      setApiError(err instanceof Error ? err.message : "Failed to review GI claim");
+    }
   };
 
   const filteredApplications = applications.filter((app) => {
@@ -419,7 +435,7 @@ export default function AdminDashboardPage() {
               : "text-craft-muted hover:text-craft-text"
           }`}
         >
-          Catalog Moderation ({products.filter((p) => p.status === "PENDING").length})
+          GI Moderation ({giClaims.filter((c) => c.gi_verification_status === "PENDING").length})
         </button>
         <button
           onClick={() => setActiveTab("ai_health")}
@@ -781,51 +797,59 @@ export default function AdminDashboardPage() {
           </div>
 
           <div className="divide-y divide-craft-border">
-            {products.map((p) => (
-              <div key={p.id} className="p-4 space-y-3">
-                <div className="flex justify-between items-start">
-                  <div>
-                    <h4 className="font-bold text-sm text-craft-text">{p.title}</h4>
-                    <p className="text-xs text-craft-muted mt-0.5">By {p.artisan}</p>
-                  </div>
-                  <span className="px-2 py-1 rounded bg-craft-background border border-craft-border text-xs font-semibold text-craft-primary">
-                    Quality: {p.image_quality_score}/100
-                  </span>
-                </div>
-
-                <div className="bg-craft-background p-3 rounded-lg border border-craft-border text-xs space-y-1">
-                  <div>
-                    <span className="font-semibold text-craft-muted">Extracted Materials: </span>
-                    <span className="text-craft-text">{p.materials}</span>
-                  </div>
-                  <div>
-                    <span className="font-semibold text-craft-muted">Claimed GI Provenance: </span>
-                    <span className="text-craft-success font-bold">{p.gi_claim}</span>
-                  </div>
-                </div>
-
-                <div className="flex justify-end space-x-2 pt-1">
-                  {p.status === "PENDING" ? (
-                    <>
-                      <button
-                        onClick={() => handleModerateProduct(p.id, "APPROVED")}
-                        className="px-3 py-1.5 rounded-lg bg-craft-primary text-white text-xs font-semibold hover:bg-craft-primary-dark"
-                      >
-                        Publish to Marketplace
-                      </button>
-                      <button
-                        onClick={() => handleModerateProduct(p.id, "REJECTED")}
-                        className="px-3 py-1.5 rounded-lg border border-craft-border text-craft-error text-xs font-semibold"
-                      >
-                        Reject & Request Edit
-                      </button>
-                    </>
-                  ) : (
-                    <span className="text-xs font-bold text-craft-primary">{p.status}</span>
-                  )}
-                </div>
+            {giClaims.length === 0 ? (
+              <div className="p-8 text-center text-xs text-craft-muted">
+                No pending or reviewed Geographical Indication (GI) claims in queue.
               </div>
-            ))}
+            ) : (
+              giClaims.map((claim) => (
+                <div key={claim.product_id} className="p-4 space-y-3">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <h4 className="font-bold text-sm text-craft-text">{claim.product_title}</h4>
+                      <p className="text-xs text-craft-muted mt-0.5">By {claim.artisan_name}</p>
+                    </div>
+                    <span className="px-2 py-1 rounded bg-craft-background border border-craft-border text-xs font-semibold text-craft-primary">
+                      {claim.gi_verification_status}
+                    </span>
+                  </div>
+
+                  <div className="bg-craft-background p-3 rounded-lg border border-craft-border text-xs space-y-1">
+                    <div>
+                      <span className="font-semibold text-craft-muted">Claimed GI Provenance: </span>
+                      <span className="text-craft-success font-bold">{claim.gi_claim_code || "Unclaimed"}</span>
+                    </div>
+                    {claim.gi_reviewer_notes && (
+                      <div>
+                        <span className="font-semibold text-craft-muted">Notes: </span>
+                        <span className="text-craft-text">{claim.gi_reviewer_notes}</span>
+                      </div>
+                    )}
+                  </div>
+
+                  <div className="flex justify-end space-x-2 pt-1">
+                    {claim.gi_verification_status === "PENDING" ? (
+                      <>
+                        <button
+                          onClick={() => handleModerateGIClaim(claim.product_id, "APPROVED")}
+                          className="px-3 py-1.5 rounded-lg bg-craft-primary text-white text-xs font-semibold hover:bg-craft-primary-dark"
+                        >
+                          Approve GI Claim
+                        </button>
+                        <button
+                          onClick={() => handleModerateGIClaim(claim.product_id, "REJECTED")}
+                          className="px-3 py-1.5 rounded-lg border border-craft-border text-craft-error text-xs font-semibold"
+                        >
+                          Reject Claim
+                        </button>
+                      </>
+                    ) : (
+                      <span className="text-xs font-bold text-craft-primary">{claim.gi_verification_status}</span>
+                    )}
+                  </div>
+                </div>
+              ))
+            )}
           </div>
         </div>
       )}

@@ -54,3 +54,27 @@ class ArtisanProfileOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     verifications: list[ArtisanVerificationOut] = []
+
+
+class KYCReviewIn(BaseModel):
+    status: str = Field(..., description="APPROVED or REJECTED")
+    reviewer_notes: str | None = None
+
+
+class GIClaimSubmitIn(BaseModel):
+    gi_claim_code: str = Field(..., min_length=3, max_length=100)
+    notes: str | None = None
+
+
+class GIClaimReviewIn(BaseModel):
+    status: str = Field(..., description="APPROVED or REJECTED")
+    reviewer_notes: str | None = None
+
+
+class GIClaimOut(BaseModel):
+    product_id: str
+    product_title: str
+    artisan_name: str
+    gi_claim_code: str | None = None
+    gi_verification_status: str
+    gi_reviewer_notes: str | None = None

@@ -72,6 +72,10 @@ class PurchaseOrder(Base):
     status: Mapped[str] = mapped_column(
         String(50), default="DRAFT"
     )  # DRAFT, ISSUED, IN_PRODUCTION, FULFILLED, CANCELLED
+    buyer_gstin: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    seller_gstin: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    gst_rate_percent: Mapped[float] = mapped_column(Numeric(5, 2), default=5.00)
+    hsn_code: Mapped[str] = mapped_column(String(32), default="5007")
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 

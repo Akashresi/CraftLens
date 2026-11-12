@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import desc
 from sqlalchemy.orm import Session
 
-from app.api.deps import require_role
+from app.api.deps import get_current_active_user, require_role
 from app.db.session import get_db
 from app.models import (
     ArtisanProfile,
@@ -24,6 +24,7 @@ from app.schemas.b2b import (
     QuotationOut,
 )
 from app.schemas.common import APIResponse
+from app.services.commerce_providers import build_gst_invoice
 
 router = APIRouter()
 
@@ -183,3 +184,54 @@ def accept_quotation_and_generate_po(
         message="Quotation accepted and Purchase Order issued",
         data=PurchaseOrderOut.model_validate(po),
     )
+
+
+@router.get("/purchase-orders/{po_id}/gst-invoice", response_model=APIResponse[dict])
+def get_b2b_gst_invoice(
+    po_id: str,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user),
+):
+    """Generates a B2B GST Tax Invoice (CGST/SGST or IGST + HSN code) for an issued Purchase Order."""
+    po = db.query(PurchaseOrder).filter(PurchaseOrder.id == po_id).first()
+    if not po:
+        raise HTTPException(status_code=404, detail="Purchase Order not found")
+
+    quote = po.quotation
+    buyer = db.query(Buyer).filter(Buyer.user_id == current_user.id).first()
+    artisan = db.query(ArtisanProfile).filter(ArtisanProfile.id == quote.artisan_id).first()
+    roles = [r.code for r in current_user.roles]
+    is_admin = "ADMIN" in roles
+    is_buyer = bool(buyer and quote.purchase_request.buyer_id == buyer.id)
+    is_artisan = bool(artisan and artisan.user_id == current_user.id)
+    if not (is_admin or is_buyer or is_artisan):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Not authorized to view this PO invoice")
+
+    seller_name = artisan.user.full_name if artisan and artisan.user else "Artisan Supplier"
+    seller_state = artisan.state if artisan and artisan.state else "Uttar Pradesh"
+    po_buyer = quote.purchase_request.buyer
+    biz = po_buyer.business_profile if po_buyer else None
+    buyer_name = (biz.company_name if biz else None) or (
+        po_buyer.user.full_name if po_buyer.user else "Wholesale Buyer"
+    )
+    buyer_state = str(
+        (po_buyer.default_billing_address or {}).get("state")
+        or (po_buyer.default_shipping_address or {}).get("state")
+        or "Maharashtra"
+    )
+
+    invoice = build_gst_invoice(
+        invoice_number=f"GST-{po.po_number}",
+        doc_ref=po.po_number,
+        seller_name=seller_name,
+        seller_state=seller_state,
+        buyer_name=buyer_name,
+        buyer_state=buyer_state,
+        taxable_subtotal=float(quote.total_amount),
+        shipping_fee=0.0,
+        gst_rate_percent=float(po.gst_rate_percent),
+        hsn_code=po.hsn_code,
+        buyer_gstin=po.buyer_gstin or (biz.gst_number if biz else None),
+        seller_gstin=po.seller_gstin,
+    )
+    return APIResponse(success=True, message="B2B GST invoice generated", data=invoice)

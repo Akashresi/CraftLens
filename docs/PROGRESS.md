@@ -71,14 +71,21 @@ Methodology: **ACT -> VERIFY -> RECORD** (evidence required for every ticked ite
 ---
 
 ## PHASE 4: COMMERCE COMPLETENESS
-- [ ] Razorpay (test mode) + UPI payment flow, idempotent webhooks with signature verification, refunds.
-- [ ] Full order state machine (`placed`, `paid`, `packed`, `shipped`, `delivered`, `cancelled`, `returned`, `disputed`) + transition tests.
-- [ ] Shipping provider interface + sandbox adapter.
-- [ ] Seller KYC hook, GI-claim verification workflow in `admin-web`, reviews, and dispute handling.
-- [ ] B2B bulk RFQs, quotes, and GST invoicing.
-- [ ] Localized Notification provider interface (SMS/WhatsApp/email).
-- [ ] End-to-end sandbox commerce test (listing -> payment -> shipped -> delivered -> payout).
-- [ ] **PHASE 4 GATE**
+- [x] Razorpay (test mode) + UPI payment flow, idempotent webhooks with signature verification, refunds.
+  - Evidence: Implemented `RazorpayPaymentProvider` in `backend/app/services/commerce_providers.py`, `RAZORPAY_UPI` checkout (`PLACED` + `upi_intent_uri`), HMAC-SHA256 verified idempotent `POST /api/v1/orders/webhooks/razorpay` (`webhook_event_ids` dedupe), and `POST /api/v1/orders/{order_id}/refund` with inventory restock & `AuditLog`. Verified in `test_e2e_sandbox_commerce_kyc_gi_razorpay_shipping_payout` and `test_dispute_refund_restock_and_b2b_gst_invoice`.
+- [x] Full order state machine (`placed`, `paid`, `packed`, `shipped`, `delivered`, `cancelled`, `returned`, `disputed`) + transition tests.
+  - Evidence: Added `ORDER_TRANSITIONS` & `validate_order_transition` in `commerce_providers.py`, `POST /api/v1/orders/{order_id}/transition`, and full state-matrix verification in `test_order_state_machine_all_valid_and_invalid_transitions`.
+- [x] Shipping provider interface + sandbox adapter.
+  - Evidence: Implemented `ShippingProvider` ABC + `ShiprocketSandboxProvider` (`backend/app/services/commerce_providers.py`), integrated on `SHIPPED` transition (`SR-SBX-*` tracking + label URL persisted on `Shipment`). Note: local fallback is labeled `STUB` when `SHIPROCKET_TOKEN` is unset.
+- [x] Seller KYC hook, GI-claim verification workflow in `admin-web`, reviews, and dispute handling.
+  - Evidence: Added `/artisans/me/kyc-hook` (PAN/Aadhaar/GSTIN format validation), `/artisans/admin/verifications`, `/artisans/products/{id}/gi-claim`, `/artisans/admin/gi-claims/{id}/review`, `/orders/{id}/review`, `/marketplace/products/{id}/reviews`, `/orders/{id}/dispute`, `/orders/admin/{id}/resolve-dispute`, plus Alembic migration `d4f6a8b0c234`. Wired GI moderation queue to live backend APIs in `admin-web/src/app/page.tsx` (`pnpm typecheck; pnpm lint; pnpm build` -> exit 0).
+- [x] B2B bulk RFQs, quotes, and GST invoicing.
+  - Evidence: Added `build_gst_invoice` (`CGST+SGST` intra-state vs `IGST` inter-state + HSN craft code) exposed on `GET /api/v1/orders/{order_id}/invoice` and `GET /api/v1/b2b/purchase-orders/{po_id}/gst-invoice` with IDOR guards.
+- [x] Localized Notification provider interface (SMS/WhatsApp/email).
+  - Evidence: Added `LocalizedNotificationProvider` (`en`, `ta`, `hi`, `te`, `kn`, `ml`, `bn`, `mr`) dispatching `ORDER_PLACED`, `ORDER_SHIPPED`, `PAYOUT_RELEASED`, `GI_STATUS_UPDATED` into `notifications` table (external SMS/WhatsApp transport labeled `STUB`).
+- [x] End-to-end sandbox commerce test (listing -> payment -> shipped -> delivered -> payout).
+  - Evidence: `test_e2e_sandbox_commerce_kyc_gi_razorpay_shipping_payout` and `test_dispute_refund_restock_and_b2b_gst_invoice` passed.
+- [x] **PHASE 4 GATE PASSED**: `ruff`, `mypy`, `bandit` clean (`0` errors); `alembic upgrade head` -> `d4f6a8b0c234`; `admin-web` build green; `pytest` **49 passed, 90.85% coverage**.
 
 ---
 

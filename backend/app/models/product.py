@@ -41,6 +41,9 @@ class Product(Base):
     status: Mapped[str] = mapped_column(
         String(50), default="DRAFT", index=True
     )  # DRAFT, PENDING_REVIEW, ACTIVE, ARCHIVED
+    gi_claim_code: Mapped[str | None] = mapped_column(String(100), nullable=True)
+    gi_verification_status: Mapped[str] = mapped_column(String(50), default="NONE")  # NONE, PENDING, APPROVED, REJECTED
+    gi_reviewer_notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     view_count: Mapped[int] = mapped_column(Integer, default=0)
 
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))

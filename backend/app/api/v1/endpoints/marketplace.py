@@ -3,9 +3,9 @@ from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.models import Category, Product
+from app.models import Category, Product, Review
 from app.schemas.common import APIResponse, PaginatedResponse
-from app.schemas.marketplace import CategoryOut, ProductPublicOut
+from app.schemas.marketplace import CategoryOut, ProductPublicOut, ReviewOut
 
 router = APIRouter()
 
@@ -115,4 +115,18 @@ def get_product_detail(
         success=True,
         message="Product details retrieved",
         data=item,
+    )
+
+
+@router.get("/products/{product_id}/reviews", response_model=APIResponse[list[ReviewOut]])
+def list_product_reviews(
+    product_id: str,
+    db: Session = Depends(get_db),
+):
+    """Returns verified buyer reviews for a product."""
+    reviews = db.query(Review).filter(Review.product_id == product_id).order_by(desc(Review.created_at)).all()
+    return APIResponse(
+        success=True,
+        message="Product reviews fetched",
+        data=[ReviewOut.model_validate(r) for r in reviews],
     )

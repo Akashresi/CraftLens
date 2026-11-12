@@ -61,11 +61,14 @@ class Settings(BaseSettings):
     BHASHINI_PIPELINE_ID: str = ""
     ASR_FALLBACK: str = "whisper_local"
 
-    # Payment Gateway (from env)
+    # Payment, Shipping & Notification Providers (from env)
     PAYMENT_GATEWAY: str = "razorpay_sandbox"
     RAZORPAY_KEY_ID: str = ""
     RAZORPAY_KEY_SECRET: str = ""
     RAZORPAY_WEBHOOK_SECRET: str = ""
+    SHIPPING_PROVIDER: str = "shiprocket_sandbox"
+    SHIPROCKET_TOKEN: str = ""
+    NOTIFICATION_PROVIDER: str = "sandbox_inapp"
 
     # DPDP Act 2023 Grievance Contact
     DPDP_GRIEVANCE_OFFICER_NAME: str = "CraftLens Data Protection & Grievance Officer"
