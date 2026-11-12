@@ -1,6 +1,7 @@
-from decimal import Decimal
-from typing import Dict, Any, Optional, List
+from typing import Any
+
 from sqlalchemy.orm import Session
+
 from app.models import Category, MarketComparable
 
 
@@ -12,9 +13,9 @@ def compute_craft_pricing(
     transportation_cost: float = 0.0,
     overhead_cost: float = 0.0,
     heritage_rarity_score: float = 1.0,  # 1.0 (standard) to 1.5 (master artisan / GI certified)
-    category_slug: Optional[str] = None,
-    db: Optional[Session] = None,
-) -> Dict[str, Any]:
+    category_slug: str | None = None,
+    db: Session | None = None,
+) -> dict[str, Any]:
     """Calculates explainable, fair, and profitable pricing tiers for handmade craft products:
     - Base Production Cost
     - Minimum Viable Selling Price (15% baseline)
@@ -99,4 +100,3 @@ def compute_craft_pricing(
             "market_max_price": market_max,
         },
     }
-

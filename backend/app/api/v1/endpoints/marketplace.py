@@ -1,20 +1,19 @@
-from typing import Optional, List
-from fastapi import APIRouter, Depends, HTTPException, Query, status
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import desc, or_
 from sqlalchemy.orm import Session
-from sqlalchemy import or_, desc, asc
 
 from app.db.session import get_db
-from app.models import Product, ProductVariant, Category, CraftOrigin, ArtisanProfile, User
-from app.schemas.marketplace import CategoryOut, ProductPublicOut
+from app.models import Category, Product
 from app.schemas.common import APIResponse, PaginatedResponse
+from app.schemas.marketplace import CategoryOut, ProductPublicOut
 
 router = APIRouter()
 
 
-@router.get("/categories", response_model=APIResponse[List[CategoryOut]])
+@router.get("/categories", response_model=APIResponse[list[CategoryOut]])
 def list_categories(db: Session = Depends(get_db)):
     """Lists all active craft categories with descriptions and icon metadata."""
-    categories = db.query(Category).filter(Category.is_active == True).order_by(Category.sort_order).all()
+    categories = db.query(Category).filter(Category.is_active.is_(True)).order_by(Category.sort_order).all()
     return APIResponse(
         success=True,
         message="Categories retrieved",
@@ -24,10 +23,10 @@ def list_categories(db: Session = Depends(get_db)):
 
 @router.get("/products", response_model=APIResponse[PaginatedResponse[ProductPublicOut]])
 def discover_products(
-    category_slug: Optional[str] = None,
-    search: Optional[str] = None,
-    min_price: Optional[float] = None,
-    max_price: Optional[float] = None,
+    category_slug: str | None = None,
+    search: str | None = None,
+    min_price: float | None = None,
+    max_price: float | None = None,
     sort: str = "newest",
     page: int = 1,
     page_size: int = 20,
@@ -98,11 +97,7 @@ def get_product_detail(
     db: Session = Depends(get_db),
 ):
     """Retrieves full details of a single product including variants, images, and artisan story."""
-    product = (
-        db.query(Product)
-        .filter(or_(Product.slug == slug_or_id, Product.id == slug_or_id))
-        .first()
-    )
+    product = db.query(Product).filter(or_(Product.slug == slug_or_id, Product.id == slug_or_id)).first()
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 

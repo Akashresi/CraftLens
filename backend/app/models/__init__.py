@@ -1,18 +1,18 @@
 from app.db.base import Base
-from app.models.user import User, Role, Permission, user_roles, role_permissions, AuditLog, ConsentRecord
-from app.models.artisan import ArtisanGroup, ArtisanProfile, ArtisanVerification, ArtisanStory
+from app.models.ai_job import AIJob, ImageProcessingJob
+from app.models.artisan import ArtisanGroup, ArtisanProfile, ArtisanStory, ArtisanVerification
 from app.models.artisan_application import ArtisanApplication
+from app.models.b2b import PurchaseOrder, PurchaseRequest, Quotation
 from app.models.buyer import Buyer, BuyerBusinessProfile
 from app.models.category import Category, CraftOrigin
-from app.models.product import Product, ProductVariant, ProductImage, ProductTranslation, GeneratedDescription
-from app.models.pricing import CostComponent, PricingEstimate, PricingHistory, MarketComparable
+from app.models.heritage import ProductQR, ProvenanceRecord
 from app.models.inventory import Inventory, StockMovement
+from app.models.marketing import BusinessExpense, DemandPrediction, MarketingAsset, MarketingCampaign
 from app.models.order import Order, OrderItem, Payment, Shipment
-from app.models.b2b import PurchaseRequest, Quotation, PurchaseOrder
-from app.models.heritage import ProvenanceRecord, ProductQR
-from app.models.marketing import MarketingCampaign, MarketingAsset, BusinessExpense, DemandPrediction
-from app.models.ai_job import ImageProcessingJob, AIJob
-from app.models.review import Review, Notification
+from app.models.pricing import CostComponent, MarketComparable, PricingEstimate, PricingHistory
+from app.models.product import GeneratedDescription, Product, ProductImage, ProductTranslation, ProductVariant
+from app.models.review import Notification, Review
+from app.models.user import AuditLog, ConsentRecord, Permission, Role, User, role_permissions, user_roles
 
 __all__ = [
     "Base",
@@ -61,4 +61,3 @@ __all__ = [
     "Review",
     "Notification",
 ]
-

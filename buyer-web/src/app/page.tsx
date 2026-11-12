@@ -183,7 +183,7 @@ export default function HomePage() {
               </div>
               <h3 className="font-bold text-craft-text mb-2 text-base">Verifiable QR Seal</h3>
               <p className="text-xs text-craft-muted leading-relaxed">
-                Tamper-evident SHA-256 maker signature on every package. Consumers scan the QR code to verify cluster authenticity and see the maker's story.
+                Tamper-evident SHA-256 maker signature on every package. Consumers scan the QR code to verify cluster authenticity and see the maker&apos;s story.
               </p>
             </div>
           </div>

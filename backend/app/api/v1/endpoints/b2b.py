@@ -1,29 +1,29 @@
 import uuid
-from datetime import datetime, timezone
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from datetime import UTC, datetime
 
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import desc
+from sqlalchemy.orm import Session
+
+from app.api.deps import require_role
 from app.db.session import get_db
 from app.models import (
-    User,
-    Buyer,
     ArtisanProfile,
+    Buyer,
     Product,
+    PurchaseOrder,
     PurchaseRequest,
     Quotation,
-    PurchaseOrder,
+    User,
 )
 from app.schemas.b2b import (
+    PurchaseOrderOut,
     PurchaseRequestCreate,
     PurchaseRequestOut,
     QuotationCreate,
     QuotationOut,
-    PurchaseOrderOut,
 )
 from app.schemas.common import APIResponse
-from app.api.deps import get_current_active_user, require_role
 
 router = APIRouter()
 
@@ -65,7 +65,7 @@ def submit_request_for_quotation(
     )
 
 
-@router.get("/rfq/artisan", response_model=APIResponse[List[PurchaseRequestOut]])
+@router.get("/rfq/artisan", response_model=APIResponse[list[PurchaseRequestOut]])
 def get_artisan_incoming_rfqs(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("ARTISAN")),
@@ -143,7 +143,7 @@ def accept_quotation_and_generate_po(
     quote.status = "ACCEPTED"
     quote.purchase_request.status = "ACCEPTED"
 
-    po_number = f"PO-{datetime.now(timezone.utc).strftime('%Y%m')}-{str(uuid.uuid4())[:6].upper()}"
+    po_number = f"PO-{datetime.now(UTC).strftime('%Y%m')}-{str(uuid.uuid4())[:6].upper()}"
 
     milestones = [
         {"milestone": "Advance Deposit (Raw Materials)", "percent": 30, "status": "PENDING"},
@@ -167,4 +167,3 @@ def accept_quotation_and_generate_po(
         message="Quotation accepted and Purchase Order issued",
         data=PurchaseOrderOut.model_validate(po),
     )
-

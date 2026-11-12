@@ -1,15 +1,21 @@
-from datetime import timedelta
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Body, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordRequestForm
+from pydantic import BaseModel
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
-from app.core.config import settings
-from app.core.security import verify_password, get_password_hash, create_access_token, create_refresh_token, decode_token
-from app.models import User, Role, ArtisanProfile, Buyer
-from app.schemas.user import UserRegister, UserLogin, Token, UserOut
-from app.schemas.common import APIResponse
 from app.api.deps import get_current_active_user
+from app.core.config import settings
+from app.core.security import (
+    create_access_token,
+    create_refresh_token,
+    decode_token,
+    get_password_hash,
+    verify_password,
+)
+from app.db.session import get_db
+from app.models import Buyer, Role, User
+from app.schemas.common import APIResponse
+from app.schemas.user import Token, UserOut, UserRegister
 
 router = APIRouter()
 
@@ -70,9 +76,7 @@ def register_user(user_in: UserRegister, db: Session = Depends(get_db)):
 
 
 @router.post("/login", response_model=Token)
-def login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)
-):
+def login_for_access_token(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
     """Standard OAuth2 password flow login."""
     user = db.query(User).filter(User.email == form_data.username).first()
     if not user or not verify_password(form_data.password, user.hashed_password):
@@ -82,9 +86,7 @@ def login_for_access_token(
             headers={"WWW-Authenticate": "Bearer"},
         )
     if not user.is_active:
-        raise HTTPException(
-            status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user account"
-        )
+        raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail="Inactive user account")
 
     access_token = create_access_token(subject=user.id)
     refresh_token = create_refresh_token(subject=user.id)
@@ -97,10 +99,24 @@ def login_for_access_token(
     )
 
 
+class RefreshTokenIn(BaseModel):
+    refresh_token: str
+
+
 @router.post("/refresh", response_model=Token)
-def refresh_access_token(refresh_token: str, db: Session = Depends(get_db)):
+def refresh_access_token(
+    body: RefreshTokenIn | None = Body(default=None),
+    refresh_token: str | None = None,
+    db: Session = Depends(get_db),
+):
     """Rotates refresh token and issues a new access token."""
-    payload = decode_token(refresh_token)
+    raw_token = body.refresh_token if body else refresh_token
+    if not raw_token:
+        raise HTTPException(
+            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail="refresh_token is required",
+        )
+    payload = decode_token(raw_token)
     if not payload or payload.get("type") != "refresh":
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -135,4 +151,3 @@ def get_current_user_profile(
         message="Profile retrieved successfully",
         data=UserOut.model_validate(current_user),
     )
-

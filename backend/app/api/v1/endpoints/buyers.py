@@ -1,16 +1,16 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_active_user, require_role
 from app.db.session import get_db
-from app.models import User, Buyer, BuyerBusinessProfile
+from app.models import Buyer, BuyerBusinessProfile, User
 from app.schemas.buyer import (
-    BuyerProfileOut,
-    BuyerProfileUpdate,
     BuyerBusinessProfileOut,
     BuyerBusinessProfileUpdate,
+    BuyerProfileOut,
+    BuyerProfileUpdate,
 )
 from app.schemas.common import APIResponse
-from app.api.deps import get_current_active_user, require_role
 
 router = APIRouter()
 
@@ -73,11 +73,7 @@ def update_my_business_profile(
         db.add(buyer)
         db.flush()
 
-    business = (
-        db.query(BuyerBusinessProfile)
-        .filter(BuyerBusinessProfile.buyer_id == buyer.id)
-        .first()
-    )
+    business = db.query(BuyerBusinessProfile).filter(BuyerBusinessProfile.buyer_id == buyer.id).first()
     if not business:
         business = BuyerBusinessProfile(
             buyer_id=buyer.id,
@@ -101,4 +97,3 @@ def update_my_business_profile(
         message="B2B Wholesale business profile updated",
         data=BuyerBusinessProfileOut.model_validate(business),
     )
-

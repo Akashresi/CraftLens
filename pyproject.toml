@@ -1,0 +1,45 @@
+[tool.ruff]
+target-version = "py311"
+line-length = 120
+src = ["backend", "ai-service"]
+exclude = ["backend/alembic", "scripts", "photos", ".venv"]
+
+[tool.ruff.lint]
+select = ["E", "F", "W", "I", "B", "UP"]
+ignore = [
+    "B008",   # FastAPI Depends/Query/File/Form in function defaults
+    "E501",   # Line length handled gracefully
+]
+
+[tool.ruff.lint.per-file-ignores]
+"backend/tests/**" = ["F401", "F841"]
+"backend/app/models/__init__.py" = ["F401"]
+"backend/app/schemas/__init__.py" = ["F401"]
+
+[tool.mypy]
+python_version = "3.11"
+mypy_path = "backend"
+explicit_package_bases = true
+namespace_packages = true
+ignore_missing_imports = true
+check_untyped_defs = true
+warn_unused_ignores = true
+no_implicit_optional = true
+exclude = ["backend/alembic", "scripts", "backend/tests"]
+
+[tool.pytest.ini_options]
+pythonpath = ["backend"]
+testpaths = ["backend/tests"]
+asyncio_mode = "auto"
+
+[tool.coverage.run]
+source = ["backend/app"]
+omit = [
+    "backend/alembic/*",
+    "backend/tests/*",
+]
+
+[tool.coverage.report]
+show_missing = true
+skip_covered = false
+fail_under = 80

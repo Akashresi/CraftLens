@@ -1,9 +1,7 @@
-import io
-import os
 import hashlib
-from typing import Tuple
+import os
+
 import qrcode
-from PIL import Image
 
 UPLOAD_BASE = "./uploads"
 os.makedirs(f"{UPLOAD_BASE}/qr", exist_ok=True)
@@ -38,4 +36,3 @@ def generate_qr_code_image(public_url: str, qr_hash: str) -> str:
     file_path = f"{UPLOAD_BASE}/qr/{qr_hash}.png"
     img.save(file_path)
     return f"/uploads/qr/{qr_hash}.png"
-

@@ -1,12 +1,12 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
-from app.core.security import verify_password, get_password_hash
-from app.models import User
-from app.schemas.user import UserOut, UserUpdate, PasswordChange
-from app.schemas.common import APIResponse
 from app.api.deps import get_current_active_user
+from app.core.security import get_password_hash, verify_password
+from app.db.session import get_db
+from app.models import User
+from app.schemas.common import APIResponse
+from app.schemas.user import PasswordChange, UserOut, UserUpdate
 
 router = APIRouter()
 
@@ -66,4 +66,3 @@ def change_user_password(
         message="Password changed successfully",
         data=True,
     )
-

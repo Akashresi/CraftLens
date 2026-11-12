@@ -1,9 +1,10 @@
 import pytest
-from app.models import User, Product, GeneratedDescription, ProductTranslation, AIJob
+
 from app.api.v1.endpoints.auth import register_user
+from app.api.v1.endpoints.voice import apply_catalog_to_product, generate_catalog_from_speech
+from app.models import AIJob, GeneratedDescription, Product, ProductTranslation, User
 from app.schemas.user import UserRegister
-from app.schemas.voice import VoiceCatalogGenerateIn, ApplyCatalogIn
-from app.api.v1.endpoints.voice import generate_catalog_from_speech, apply_catalog_to_product
+from app.schemas.voice import ApplyCatalogIn, VoiceCatalogGenerateIn
 from app.services.voice_catalog import extract_and_generate_catalog
 
 
@@ -11,7 +12,7 @@ def test_tamil_voice_catalog_generation():
     # Spoken Tamil input by an artisan weaver
     tamil_speech = "இது தூய காஞ்சிபுரம் பட்டுப் புடவை, பாரம்பரிய தறி முறையில் நெசவு செய்யப்பட்டது."
     catalog = extract_and_generate_catalog(tamil_speech, source_language="ta")
-    
+
     assert "title_en" in catalog
     assert "Silk" in catalog["title_en"] or "Kanchipuram" in catalog["title_en"]
     assert "title_hi" in catalog
@@ -34,12 +35,13 @@ def test_hindi_voice_catalog_generation():
 
 def test_apply_catalog_persists_multilingual_entities(db):
     from tests.conftest import create_test_artisan
+
     user = create_test_artisan(
         db=db,
         email="voice.weaver@craftlens.org",
         password="VoiceWeaver#2026",
         full_name="Govindhan Weaver",
-        preferred_language="ta"
+        preferred_language="ta",
     )
 
     payload = ApplyCatalogIn(
@@ -52,7 +54,7 @@ def test_apply_catalog_persists_multilingual_entities(db):
         description_hi="पारंपरिक मंदिर किनारों के साथ बारीकी से बुनी गई रेशम साड़ी।",
         seo_keywords=["silk saree", "handloom", "wedding"],
         source_transcript="இது தூய பட்டு புடவை",
-        source_language="ta"
+        source_language="ta",
     )
 
     res = apply_catalog_to_product(payload=payload, db=db, current_user=user)
@@ -76,4 +78,3 @@ def test_apply_catalog_persists_multilingual_entities(db):
     lang_codes = {t.language_code for t in translations}
     assert "en" in lang_codes
     assert "hi" in lang_codes
-

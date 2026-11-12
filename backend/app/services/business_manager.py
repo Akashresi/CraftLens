@@ -1,20 +1,16 @@
-from datetime import datetime, timezone, timedelta
-from typing import Dict, Any, List, Optional
+from datetime import UTC, datetime
+from typing import Any
+
 from sqlalchemy.orm import Session
-from sqlalchemy import func
 
 from app.models import (
-    Product,
-    ProductVariant,
-    Inventory,
-    Order,
-    OrderItem,
     BusinessExpense,
-    ArtisanProfile,
+    OrderItem,
+    Product,
 )
 
 
-def get_artisan_dashboard_metrics(artisan_id: str, db: Session) -> Dict[str, Any]:
+def get_artisan_dashboard_metrics(artisan_id: str, db: Session) -> dict[str, Any]:
     """Aggregates real-time business performance metrics for an artisan:
     - Today's sales & total monthly revenue
     - Pending vs fulfilled orders
@@ -22,19 +18,21 @@ def get_artisan_dashboard_metrics(artisan_id: str, db: Session) -> Dict[str, Any
     - Inventory items below low-stock threshold
     - Recorded business expenses
     """
-    now = datetime.now(timezone.utc)
-    today_start = datetime(now.year, now.month, now.day, tzinfo=timezone.utc)
-    month_start = datetime(now.year, now.month, 1, tzinfo=timezone.utc)
+    now = datetime.now(UTC)
+    today_start = datetime(now.year, now.month, now.day, tzinfo=UTC)
+    month_start = datetime(now.year, now.month, 1, tzinfo=UTC)
 
     # All items sold by this artisan
     artisan_items = db.query(OrderItem).filter(OrderItem.artisan_id == artisan_id).all()
 
-    total_revenue = sum(float(i.total_price) for i in artisan_items)
+    total_revenue = sum((float(i.total_price) for i in artisan_items), 0.0)
     today_revenue = sum(
-        float(i.total_price) for i in artisan_items if i.order and i.order.created_at >= today_start
+        (float(i.total_price) for i in artisan_items if i.order and i.order.created_at >= today_start),
+        0.0,
     )
     month_revenue = sum(
-        float(i.total_price) for i in artisan_items if i.order and i.order.created_at >= month_start
+        (float(i.total_price) for i in artisan_items if i.order and i.order.created_at >= month_start),
+        0.0,
     )
 
     total_orders_count = len(set(i.order_id for i in artisan_items))
@@ -79,7 +77,7 @@ def get_artisan_dashboard_metrics(artisan_id: str, db: Session) -> Dict[str, Any
     }
 
 
-def answer_business_assistant_query(query: str, artisan_id: str, db: Session) -> Dict[str, Any]:
+def answer_business_assistant_query(query: str, artisan_id: str, db: Session) -> dict[str, Any]:
     """Answers artisan business questions using actual verified database records."""
     metrics = get_artisan_dashboard_metrics(artisan_id=artisan_id, db=db)
     q = query.lower()
@@ -97,7 +95,9 @@ def answer_business_assistant_query(query: str, artisan_id: str, db: Session) ->
     elif any(k in q for k in ["stock", "inventory", "low", "இருப்பு", "स्टॉक"]):
         if metrics["low_stock_count"] > 0:
             names = ", ".join(i["product_title"] for i in metrics["low_stock_items"][:3])
-            answer = f"Warning: {metrics['low_stock_count']} item(s) have low stock: {names}. Consider creating more units."
+            answer = (
+                f"Warning: {metrics['low_stock_count']} item(s) have low stock: {names}. Consider creating more units."
+            )
         else:
             answer = "All your products have healthy inventory levels above the minimum threshold."
     else:
@@ -113,9 +113,9 @@ def create_promotional_copy(
     product_title: str,
     craft_technique: str,
     platform: str = "INSTAGRAM",
-    festival: Optional[str] = None,
+    festival: str | None = None,
     language: str = "en",
-) -> Dict[str, Any]:
+) -> dict[str, Any]:
     """Generates engaging marketing and social media copy with hashtags."""
     fest_str = f" for {festival}" if festival else ""
 

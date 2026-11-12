@@ -1,5 +1,4 @@
-from typing import Optional, Dict, Any, List
-from pydantic import BaseModel, ConfigDict
+from pydantic import BaseModel
 
 
 class QualityAnalysisOut(BaseModel):
@@ -23,4 +22,3 @@ class StudioProcessResult(BaseModel):
     quality_score: float
     latency_ms: int
     status: str
-

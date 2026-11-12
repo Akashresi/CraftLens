@@ -1,6 +1,6 @@
-from typing import Optional, List, Dict, Any
-from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict
+from typing import Any
+
+from pydantic import BaseModel, Field
 
 
 class DashboardMetricsOut(BaseModel):
@@ -13,7 +13,7 @@ class DashboardMetricsOut(BaseModel):
     pending_orders_count: int
     active_products_count: int
     low_stock_count: int
-    low_stock_items: List[Dict[str, Any]] = []
+    low_stock_items: list[dict[str, Any]] = []
 
 
 class AssistantQueryIn(BaseModel):
@@ -30,19 +30,18 @@ class MarketingGenerateIn(BaseModel):
     product_title: str
     craft_technique: str = "Traditional Indian Craft"
     platform: str = Field(default="INSTAGRAM", description="INSTAGRAM, WHATSAPP, FESTIVAL_CATALOG")
-    festival: Optional[str] = None
+    festival: str | None = None
     language: str = "en"
 
 
 class MarketingGenerateOut(BaseModel):
     platform: str
-    festival: Optional[str] = None
+    festival: str | None = None
     generated_content: str
-    suggested_hashtags: List[str]
+    suggested_hashtags: list[str]
 
 
 class ExpenseCreateIn(BaseModel):
     amount: float = Field(..., gt=0)
     category: str = Field(..., description="RAW_MATERIALS, TOOLS, DYE, LOGISTICS, WORKSHOP_RENT")
-    notes: Optional[str] = None
-
+    notes: str | None = None

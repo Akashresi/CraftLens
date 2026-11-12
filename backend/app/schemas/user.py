@@ -1,6 +1,6 @@
-from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, EmailStr, Field, ConfigDict
+
+from pydantic import BaseModel, ConfigDict, EmailStr, Field
 
 
 class RoleOut(BaseModel):
@@ -13,10 +13,13 @@ class RoleOut(BaseModel):
 
 class UserRegister(BaseModel):
     email: EmailStr
-    phone: Optional[str] = None
+    phone: str | None = None
     password: str = Field(..., min_length=6)
     full_name: str
-    role_code: str = Field(default="RETAIL_BUYER", description="RETAIL_BUYER or WHOLESALE_BUYER (ARTISAN and ADMIN cannot be chosen at registration)")
+    role_code: str = Field(
+        default="RETAIL_BUYER",
+        description="RETAIL_BUYER or WHOLESALE_BUYER (ARTISAN and ADMIN cannot be chosen at registration)",
+    )
     preferred_language: str = Field(default="ta", description="ta, hi, en, te, kn, ml")
 
 
@@ -26,9 +29,9 @@ class UserLogin(BaseModel):
 
 
 class UserUpdate(BaseModel):
-    full_name: Optional[str] = None
-    phone: Optional[str] = None
-    preferred_language: Optional[str] = Field(None, description="ta, hi, en, te, kn, ml")
+    full_name: str | None = None
+    phone: str | None = None
+    preferred_language: str | None = Field(None, description="ta, hi, en, te, kn, ml")
 
 
 class PasswordChange(BaseModel):
@@ -44,9 +47,9 @@ class Token(BaseModel):
 
 
 class TokenPayload(BaseModel):
-    sub: Optional[str] = None
-    exp: Optional[int] = None
-    type: Optional[str] = None
+    sub: str | None = None
+    exp: int | None = None
+    type: str | None = None
 
 
 class UserOut(BaseModel):
@@ -54,10 +57,10 @@ class UserOut(BaseModel):
 
     id: str
     email: str
-    phone: Optional[str] = None
+    phone: str | None = None
     full_name: str
     preferred_language: str
     is_active: bool
     is_verified: bool
-    roles: List[RoleOut] = []
+    roles: list[RoleOut] = []
     created_at: datetime

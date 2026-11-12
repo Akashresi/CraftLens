@@ -1,6 +1,7 @@
-from typing import Optional, List, Dict, Any
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict
+from typing import Any
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class CategoryOut(BaseModel):
@@ -9,8 +10,8 @@ class CategoryOut(BaseModel):
     id: str
     name: str
     slug: str
-    description: Optional[str] = None
-    image_url: Optional[str] = None
+    description: str | None = None
+    image_url: str | None = None
 
 
 class ProductImageOut(BaseModel):
@@ -18,7 +19,7 @@ class ProductImageOut(BaseModel):
 
     id: str
     raw_url: str
-    processed_url: Optional[str] = None
+    processed_url: str | None = None
     background_type: str
     is_primary: bool
     quality_score: float
@@ -30,8 +31,8 @@ class ProductVariantOut(BaseModel):
     id: str
     sku: str
     title: str
-    color: Optional[str] = None
-    size: Optional[str] = None
+    color: str | None = None
+    size: str | None = None
     price_retail: float
     price_wholesale: float
     min_wholesale_qty: int
@@ -44,18 +45,18 @@ class ProductPublicOut(BaseModel):
     id: str
     title: str
     slug: str
-    summary: Optional[str] = None
-    primary_material: Optional[str] = None
-    technique: Optional[str] = None
-    dimensions: Optional[str] = None
+    summary: str | None = None
+    primary_material: str | None = None
+    technique: str | None = None
+    dimensions: str | None = None
     status: str
     view_count: int
     category: CategoryOut
-    variants: List[ProductVariantOut] = []
-    images: List[ProductImageOut] = []
-    artisan_name: Optional[str] = None
-    artisan_city: Optional[str] = None
-    artisan_verification_level: Optional[str] = None
+    variants: list[ProductVariantOut] = []
+    images: list[ProductImageOut] = []
+    artisan_name: str | None = None
+    artisan_city: str | None = None
+    artisan_verification_level: str | None = None
     created_at: datetime
 
 
@@ -65,9 +66,9 @@ class CartItemIn(BaseModel):
 
 
 class OrderCreateIn(BaseModel):
-    items: List[CartItemIn]
+    items: list[CartItemIn]
     order_type: str = Field(default="RETAIL", description="RETAIL or WHOLESALE")
-    delivery_address: Dict[str, Any]
+    delivery_address: dict[str, Any]
     payment_method: str = Field(default="SANDBOX", description="SANDBOX, RAZORPAY, COD")
 
 
@@ -95,7 +96,6 @@ class OrderOut(BaseModel):
     shipping_fee: float
     total_amount: float
     status: str
-    delivery_address: Dict[str, Any]
-    items: List[OrderItemOut] = []
+    delivery_address: dict[str, Any]
+    items: list[OrderItemOut] = []
     created_at: datetime
-

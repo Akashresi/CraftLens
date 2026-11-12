@@ -1,12 +1,13 @@
 import uuid
-from fastapi import APIRouter, Depends, HTTPException, status
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.api.deps import require_role
 from app.db.session import get_db
-from app.models import User, Product, ProductVariant, CostComponent, PricingEstimate, PricingHistory, Inventory
-from app.schemas.pricing import PricingCalculateIn, PricingEstimateOut, SavePricingIn
+from app.models import Inventory, PricingHistory, Product, ProductVariant, User
 from app.schemas.common import APIResponse
-from app.api.deps import get_current_active_user, require_role
+from app.schemas.pricing import PricingCalculateIn, PricingEstimateOut, SavePricingIn
 from app.services.pricing_engine import compute_craft_pricing
 
 router = APIRouter()
@@ -109,4 +110,3 @@ def apply_pricing_to_product(
             "stock_quantity": variant.stock_quantity,
         },
     )
-

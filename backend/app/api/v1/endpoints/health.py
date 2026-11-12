@@ -1,6 +1,6 @@
 from fastapi import APIRouter, Depends
-from sqlalchemy.orm import Session
 from sqlalchemy import text
+from sqlalchemy.orm import Session
 
 from app.db.session import get_db
 from app.schemas.common import HealthResponse
@@ -24,4 +24,3 @@ def health_check(db: Session = Depends(get_db)):
         database_connected=db_ok,
         ai_service_available=True,
     )
-

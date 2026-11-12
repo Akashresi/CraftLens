@@ -1,17 +1,17 @@
-from typing import List, Optional
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+
 from fastapi import APIRouter, Depends, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.api.deps import get_current_active_user, require_role
 from app.db.session import get_db
-from app.models import User, Role, ArtisanProfile, ArtisanApplication, AuditLog
+from app.models import ArtisanApplication, ArtisanProfile, AuditLog, Role, User
 from app.schemas.artisan_application import (
     ArtisanApplicationCreate,
-    ArtisanApplicationReviewIn,
     ArtisanApplicationOut,
+    ArtisanApplicationReviewIn,
 )
 from app.schemas.common import APIResponse
-from app.api.deps import get_current_active_user, require_role
 
 router = APIRouter()
 
@@ -95,7 +95,7 @@ def submit_artisan_application(
     )
 
 
-@router.get("/me", response_model=APIResponse[Optional[ArtisanApplicationOut]])
+@router.get("/me", response_model=APIResponse[ArtisanApplicationOut | None])
 def get_my_artisan_application(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
@@ -121,9 +121,9 @@ def get_my_artisan_application(
     )
 
 
-@router.get("/admin", response_model=APIResponse[List[ArtisanApplicationOut]])
+@router.get("/admin", response_model=APIResponse[list[ArtisanApplicationOut]])
 def list_artisan_applications_admin(
-    status_filter: Optional[str] = Query(None, alias="status", description="PENDING, APPROVED, REJECTED"),
+    status_filter: str | None = Query(None, alias="status", description="PENDING, APPROVED, REJECTED"),
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("ADMIN")),
 ):
@@ -132,7 +132,7 @@ def list_artisan_applications_admin(
     query = db.query(ArtisanApplication)
     if status_filter and isinstance(status_filter, str):
         query = query.filter(ArtisanApplication.status == status_filter.upper())
-    
+
     applications = query.order_by(ArtisanApplication.created_at.desc()).all()
     out_list = [_format_application_out(app) for app in applications]
 
@@ -146,7 +146,7 @@ def list_artisan_applications_admin(
 @router.post("/admin/{application_id}/approve", response_model=APIResponse[ArtisanApplicationOut])
 def approve_artisan_application(
     application_id: str,
-    review_in: Optional[ArtisanApplicationReviewIn] = None,
+    review_in: ArtisanApplicationReviewIn | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("ADMIN")),
 ):
@@ -158,11 +158,7 @@ def approve_artisan_application(
     5. Writes an immutable audit log entry.
     """
     require_role("ADMIN")(current_user)
-    app_record = (
-        db.query(ArtisanApplication)
-        .filter(ArtisanApplication.id == application_id)
-        .first()
-    )
+    app_record = db.query(ArtisanApplication).filter(ArtisanApplication.id == application_id).first()
     if not app_record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -179,26 +175,20 @@ def approve_artisan_application(
     app_record.status = "APPROVED"
     app_record.reviewer_notes = review_in.reviewer_notes if review_in else None
     app_record.reviewed_by_user_id = current_user.id
-    app_record.reviewed_at = datetime.now(timezone.utc)
+    app_record.reviewed_at = datetime.now(UTC)
 
     # 2. Convert applicant role
     applicant = db.query(User).filter(User.id == app_record.user_id).first()
     if applicant:
         # Remove buyer role (exclusive conversion rule)
-        applicant.roles = [
-            r for r in applicant.roles if r.code not in ["RETAIL_BUYER", "WHOLESALE_BUYER"]
-        ]
-        
+        applicant.roles = [r for r in applicant.roles if r.code not in ["RETAIL_BUYER", "WHOLESALE_BUYER"]]
+
         artisan_role = db.query(Role).filter(Role.code == "ARTISAN").first()
         if artisan_role and artisan_role not in applicant.roles:
             applicant.roles.append(artisan_role)
 
         # 3. Create or update ArtisanProfile
-        artisan_profile = (
-            db.query(ArtisanProfile)
-            .filter(ArtisanProfile.user_id == applicant.id)
-            .first()
-        )
+        artisan_profile = db.query(ArtisanProfile).filter(ArtisanProfile.user_id == applicant.id).first()
         if not artisan_profile:
             artisan_profile = ArtisanProfile(
                 user_id=applicant.id,
@@ -244,7 +234,7 @@ def approve_artisan_application(
 @router.post("/admin/{application_id}/reject", response_model=APIResponse[ArtisanApplicationOut])
 def reject_artisan_application(
     application_id: str,
-    review_in: Optional[ArtisanApplicationReviewIn] = None,
+    review_in: ArtisanApplicationReviewIn | None = None,
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("ADMIN")),
 ):
@@ -255,11 +245,7 @@ def reject_artisan_application(
     - Audit log entry recorded.
     """
     require_role("ADMIN")(current_user)
-    app_record = (
-        db.query(ArtisanApplication)
-        .filter(ArtisanApplication.id == application_id)
-        .first()
-    )
+    app_record = db.query(ArtisanApplication).filter(ArtisanApplication.id == application_id).first()
     if not app_record:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -275,7 +261,7 @@ def reject_artisan_application(
     app_record.status = "REJECTED"
     app_record.reviewer_notes = review_in.reviewer_notes if review_in else None
     app_record.reviewed_by_user_id = current_user.id
-    app_record.reviewed_at = datetime.now(timezone.utc)
+    app_record.reviewed_at = datetime.now(UTC)
 
     audit_entry = AuditLog(
         user_id=current_user.id,
@@ -297,4 +283,3 @@ def reject_artisan_application(
         message="Artisan application has been rejected. Buyer role preserved.",
         data=_format_application_out(app_record),
     )
-

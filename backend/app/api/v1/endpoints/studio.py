@@ -1,20 +1,21 @@
 import os
-import uuid
 import time
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
+import uuid
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
+from app.api.deps import require_role
 from app.db.session import get_db
-from app.models import User, ImageProcessingJob
-from app.schemas.studio import QualityAnalysisOut, StudioProcessResult
+from app.models import ImageProcessingJob, User
 from app.schemas.common import APIResponse
-from app.api.deps import get_current_active_user, require_role
+from app.schemas.studio import QualityAnalysisOut, StudioProcessResult
 from app.services.image_studio import (
     analyze_image_quality,
-    remove_product_background,
     correct_lighting_and_color,
-    generate_studio_white_background,
     generate_lifestyle_background,
+    generate_studio_white_background,
+    remove_product_background,
 )
 
 router = APIRouter()

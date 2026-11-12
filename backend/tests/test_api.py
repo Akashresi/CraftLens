@@ -1,10 +1,11 @@
 import pytest
-from app.core.security import verify_password, get_password_hash, create_access_token, decode_token
-from app.models import User, Role, Category, CraftOrigin, ArtisanProfile
-from app.schemas.user import UserRegister, UserLogin
-from app.api.v1.endpoints.health import health_check
-from app.api.v1.endpoints.auth import register_user, get_current_user_profile
 from fastapi.security import OAuth2PasswordRequestForm
+
+from app.api.v1.endpoints.auth import get_current_user_profile, register_user
+from app.api.v1.endpoints.health import health_check
+from app.core.security import create_access_token, decode_token, get_password_hash, verify_password
+from app.models import ArtisanProfile, Category, CraftOrigin, Role, User
+from app.schemas.user import UserLogin, UserRegister
 
 
 def test_password_hashing_argon2id():
@@ -57,7 +58,7 @@ def test_user_registration_and_profile_flow(db):
         phone="+919841234567",
         password="WeaverPassword#123",
         full_name="Ramu Buyer",
-        preferred_language="ta"
+        preferred_language="ta",
     )
     reg_response = register_user(user_in=register_in, db=db)
     assert reg_response.success is True

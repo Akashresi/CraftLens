@@ -1,13 +1,12 @@
-import os
 import json
-import re
-from typing import Dict, Any, List, Optional
+from typing import Any
 
 from app.core.config import settings
 
 # Optional Google Gemini AI
 try:
     import google.generativeai as genai
+
     if settings.GEMINI_API_KEY:
         genai.configure(api_key=settings.GEMINI_API_KEY)
     GEMINI_AVAILABLE = True
@@ -15,7 +14,7 @@ except Exception:
     GEMINI_AVAILABLE = False
 
 
-def transcribe_regional_audio(audio_bytes: bytes, language_code: str = "ta") -> Dict[str, Any]:
+def transcribe_regional_audio(audio_bytes: bytes, language_code: str = "ta") -> dict[str, Any]:
     """Converts spoken regional artisan audio (Tamil, Hindi, Telugu, Kannada, Malayalam, English)
     into text using Bhashini ASR adapter or local fallback.
     """
@@ -28,7 +27,7 @@ def transcribe_regional_audio(audio_bytes: bytes, language_code: str = "ta") -> 
     # In production with local whisper:
     # model = whisper.load_model("base")
     # result = model.transcribe(audio_path)
-    
+
     # We provide an intelligent decoder mapping audio length/content or raw text input
     return {
         "transcript": "இது பாரம்பரிய காஞ்சிபுரம் பட்டுப் புடவை, தூய மல்பெரி பட்டு மற்றும் இயற்கை ஜரிகை கொண்டு 15 நாட்கள் கைத்தறியில் நெய்யப்பட்டது.",
@@ -40,8 +39,8 @@ def transcribe_regional_audio(audio_bytes: bytes, language_code: str = "ta") -> 
 def extract_and_generate_catalog(
     transcript: str,
     source_language: str = "ta",
-    artisan_craft_specialization: Optional[str] = None,
-) -> Dict[str, Any]:
+    artisan_craft_specialization: str | None = None,
+) -> dict[str, Any]:
     """Generates structured e-commerce catalog attributes (English and Hindi titles, descriptions,
     materials, techniques, and SEO tags) from regional spoken words.
     Enforces strict truthfulness: Never invents unmentioned materials or certifications.
@@ -54,7 +53,7 @@ You are the AI Catalog Assistant for CraftLens, a platform for traditional India
 An artisan spoke the following in {source_language}:
 "{transcript}"
 
-Specialization context: {artisan_craft_specialization or 'Traditional Handicrafts'}
+Specialization context: {artisan_craft_specialization or "Traditional Handicrafts"}
 
 TASK:
 Extract and format a professional e-commerce product listing.
@@ -86,7 +85,7 @@ Return STRICTLY a JSON object with:
 
             parsed = json.loads(clean_text.strip())
             return parsed
-        except Exception as e:
+        except Exception:
             # Fallback to local heuristic extractor if Gemini rate-limited or key missing
             pass
 
@@ -109,7 +108,13 @@ Return STRICTLY a JSON object with:
             ),
             "primary_material": "Mulberry Silk & Zari",
             "technique": "Pit Loom Korvai Weaving",
-            "seo_keywords": ["kanchipuram silk saree", "handloom silk", "pure zari", "traditional indian textile", "wedding saree"],
+            "seo_keywords": [
+                "kanchipuram silk saree",
+                "handloom silk",
+                "pure zari",
+                "traditional indian textile",
+                "wedding saree",
+            ],
             "suggested_category_slug": "handloom-textiles",
         }
     elif any(k in text_lower for k in ["மண்", "பானை", "clay", "pottery", "मिट्टी", "कुम्हार"]):
@@ -138,12 +143,15 @@ Return STRICTLY a JSON object with:
                 "Individually handcrafted by registered indigenous artisans using sustainable regional raw materials. "
                 "Every piece reflects unique handmade character and authentic cultural artistry."
             ),
-            "description_hi": (
-                "स्थानीय कारीगरों द्वारा प्राकृतिक और पारंपरिक तकनीकों से तैयार की गई विशिष्ट हस्तकला कृति।"
-            ),
+            "description_hi": ("स्थानीय कारीगरों द्वारा प्राकृतिक और पारंपरिक तकनीकों से तैयार की गई विशिष्ट हस्तकला कृति।"),
             "primary_material": "Natural Eco-Friendly Raw Materials",
             "technique": "Traditional Indian Handicraft",
-            "seo_keywords": ["handmade in india", "artisan craft", "sustainable handmade", "cultural heritage", "vocal for local"],
+            "seo_keywords": [
+                "handmade in india",
+                "artisan craft",
+                "sustainable handmade",
+                "cultural heritage",
+                "vocal for local",
+            ],
             "suggested_category_slug": "woodcraft-toys",
         }
-

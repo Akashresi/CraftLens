@@ -4,10 +4,17 @@ interface RequestOptions extends RequestInit {
   token?: string | null;
 }
 
+export interface ApiEnvelope<T = unknown> {
+  success: boolean;
+  data?: T;
+  message?: string;
+  error?: string;
+}
+
 export async function apiRequest<T = any>(
   endpoint: string,
   options: RequestOptions = {}
-): Promise<{ success: boolean; data?: T; message?: string; error?: string }> {
+): Promise<ApiEnvelope<T>> {
   const url = `${API_BASE_URL}${endpoint}`;
   const headers = new Headers(options.headers || {});
 
@@ -15,7 +22,6 @@ export async function apiRequest<T = any>(
     headers.set("Content-Type", "application/json");
   }
 
-  // Retrieve token from options or localStorage if in browser
   const token =
     options.token ||
     (typeof window !== "undefined" ? localStorage.getItem("craftlens_token") : null);
@@ -38,12 +44,41 @@ export async function apiRequest<T = any>(
       };
     }
 
-    return data;
-  } catch (err: any) {
+    return data as ApiEnvelope<T>;
+  } catch (err: unknown) {
     return {
       success: false,
-      error: err.message || "Network connectivity failure",
+      error: err instanceof Error ? err.message : "Network connectivity failure",
     };
   }
 }
 
+async function requestUnwrapped<T = any>(
+  endpoint: string,
+  options: RequestOptions = {}
+): Promise<T> {
+  const res = await apiRequest<T>(endpoint, options);
+  if (!res.success) {
+    throw new Error(res.error || "API request failed");
+  }
+  return (res.data as T) ?? ({} as T);
+}
+
+export const api = {
+  get: <T = any>(endpoint: string, options: RequestOptions = {}) =>
+    requestUnwrapped<T>(endpoint, { ...options, method: "GET" }),
+  post: <T = any>(endpoint: string, body?: unknown, options: RequestOptions = {}) =>
+    requestUnwrapped<T>(endpoint, {
+      ...options,
+      method: "POST",
+      body: body instanceof FormData ? body : JSON.stringify(body ?? {}),
+    }),
+  put: <T = any>(endpoint: string, body?: unknown, options: RequestOptions = {}) =>
+    requestUnwrapped<T>(endpoint, {
+      ...options,
+      method: "PUT",
+      body: body instanceof FormData ? body : JSON.stringify(body ?? {}),
+    }),
+  delete: <T = any>(endpoint: string, options: RequestOptions = {}) =>
+    requestUnwrapped<T>(endpoint, { ...options, method: "DELETE" }),
+};

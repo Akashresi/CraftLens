@@ -1,11 +1,11 @@
-from typing import Optional, List
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ArtisanVerificationCreate(BaseModel):
     document_type: str = Field(..., description="PEHCHAN_CARD, AADHAAR, WEAVER_ID, COOP_CERTIFICATE")
-    document_number: Optional[str] = None
+    document_number: str | None = None
     document_url: str
 
 
@@ -14,25 +14,25 @@ class ArtisanVerificationOut(BaseModel):
 
     id: str
     document_type: str
-    document_number: Optional[str] = None
+    document_number: str | None = None
     document_url: str
     status: str
-    reviewer_notes: Optional[str] = None
-    verified_at: Optional[datetime] = None
+    reviewer_notes: str | None = None
+    verified_at: datetime | None = None
     created_at: datetime
 
 
 class ArtisanProfileUpdate(BaseModel):
-    craft_specialization: Optional[str] = None
-    bio: Optional[str] = None
-    experience_years: Optional[int] = Field(None, ge=0, le=80)
-    studio_address: Optional[str] = None
-    city: Optional[str] = None
-    state: Optional[str] = None
-    pincode: Optional[str] = None
-    profile_image_url: Optional[str] = None
-    group_id: Optional[str] = None
-    bank_account_configured: Optional[bool] = None
+    craft_specialization: str | None = None
+    bio: str | None = None
+    experience_years: int | None = Field(None, ge=0, le=80)
+    studio_address: str | None = None
+    city: str | None = None
+    state: str | None = None
+    pincode: str | None = None
+    profile_image_url: str | None = None
+    group_id: str | None = None
+    bank_account_configured: bool | None = None
 
 
 class ArtisanProfileOut(BaseModel):
@@ -40,18 +40,17 @@ class ArtisanProfileOut(BaseModel):
 
     id: str
     user_id: str
-    group_id: Optional[str] = None
+    group_id: str | None = None
     craft_specialization: str
-    bio: Optional[str] = None
+    bio: str | None = None
     experience_years: int
-    studio_address: Optional[str] = None
-    city: Optional[str] = None
-    state: Optional[str] = None
-    pincode: Optional[str] = None
+    studio_address: str | None = None
+    city: str | None = None
+    state: str | None = None
+    pincode: str | None = None
     verification_level: str
-    profile_image_url: Optional[str] = None
+    profile_image_url: str | None = None
     bank_account_configured: bool
     created_at: datetime
     updated_at: datetime
-    verifications: List[ArtisanVerificationOut] = []
-
+    verifications: list[ArtisanVerificationOut] = []

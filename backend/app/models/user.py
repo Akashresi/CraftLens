@@ -1,8 +1,16 @@
 import uuid
-from datetime import datetime, timezone
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, Table, Column, JSON, Text
+from datetime import UTC, datetime
+from typing import TYPE_CHECKING
+
+from sqlalchemy import JSON, Boolean, Column, DateTime, ForeignKey, String, Table
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.artisan import ArtisanProfile
+    from app.models.artisan_application import ArtisanApplication
+    from app.models.buyer import Buyer
 
 
 # Many-to-many: User and Role
@@ -33,19 +41,19 @@ class User(Base):
     preferred_language: Mapped[str] = mapped_column(String(10), default="ta", nullable=False)  # ta, hi, en, te, kn, ml
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     is_verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
-    
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), 
-        default=lambda: datetime.now(timezone.utc), 
-        onupdate=lambda: datetime.now(timezone.utc)
+        DateTime(timezone=True), default=lambda: datetime.now(UTC), onupdate=lambda: datetime.now(UTC)
     )
 
     # Relationships
     roles: Mapped[list["Role"]] = relationship("Role", secondary=user_roles, back_populates="users", lazy="joined")
     artisan_profile: Mapped["ArtisanProfile"] = relationship("ArtisanProfile", back_populates="user", uselist=False)
     buyer_profile: Mapped["Buyer"] = relationship("Buyer", back_populates="user", uselist=False)
-    artisan_applications: Mapped[list["ArtisanApplication"]] = relationship("ArtisanApplication", foreign_keys="ArtisanApplication.user_id", back_populates="user")
+    artisan_applications: Mapped[list["ArtisanApplication"]] = relationship(
+        "ArtisanApplication", foreign_keys="ArtisanApplication.user_id", back_populates="user"
+    )
     audit_logs: Mapped[list["AuditLog"]] = relationship("AuditLog", back_populates="user")
     consent_records: Mapped[list["ConsentRecord"]] = relationship("ConsentRecord", back_populates="user")
 
@@ -54,12 +62,16 @@ class Role(Base):
     __tablename__ = "roles"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    code: Mapped[str] = mapped_column(String(50), unique=True, index=True, nullable=False)  # ARTISAN, RETAIL_BUYER, WHOLESALE_BUYER, ADMIN
+    code: Mapped[str] = mapped_column(
+        String(50), unique=True, index=True, nullable=False
+    )  # ARTISAN, RETAIL_BUYER, WHOLESALE_BUYER, ADMIN
     name: Mapped[str] = mapped_column(String(100), nullable=False)
     description: Mapped[str] = mapped_column(String(255), nullable=True)
 
     users: Mapped[list["User"]] = relationship("User", secondary=user_roles, back_populates="roles")
-    permissions: Mapped[list["Permission"]] = relationship("Permission", secondary=role_permissions, back_populates="roles")
+    permissions: Mapped[list["Permission"]] = relationship(
+        "Permission", secondary=role_permissions, back_populates="roles"
+    )
 
 
 class Permission(Base):
@@ -76,13 +88,15 @@ class AuditLog(Base):
     __tablename__ = "audit_logs"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True)
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="SET NULL"), nullable=True, index=True
+    )
     action: Mapped[str] = mapped_column(String(100), nullable=False)
     resource: Mapped[str] = mapped_column(String(100), nullable=False)
     ip_address: Mapped[str] = mapped_column(String(45), nullable=True)
     user_agent: Mapped[str] = mapped_column(String(255), nullable=True)
     details: Mapped[dict] = mapped_column(JSON, default=dict)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     user: Mapped["User"] = relationship("User", back_populates="audit_logs")
 
@@ -91,10 +105,14 @@ class ConsentRecord(Base):
     __tablename__ = "consent_records"
 
     id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid.uuid4()))
-    user_id: Mapped[str] = mapped_column(String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True)
-    consent_type: Mapped[str] = mapped_column(String(100), nullable=False)  # TERMS_OF_SERVICE, PRIVACY_POLICY, CULTURAL_STORY_SHARING
+    user_id: Mapped[str] = mapped_column(
+        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False, index=True
+    )
+    consent_type: Mapped[str] = mapped_column(
+        String(100), nullable=False
+    )  # TERMS_OF_SERVICE, PRIVACY_POLICY, CULTURAL_STORY_SHARING
     granted: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
     ip_address: Mapped[str] = mapped_column(String(45), nullable=True)
-    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(timezone.utc))
+    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=lambda: datetime.now(UTC))
 
     user: Mapped["User"] = relationship("User", back_populates="consent_records")

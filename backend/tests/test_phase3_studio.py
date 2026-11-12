@@ -1,18 +1,20 @@
 import io
+
 import pytest
+from fastapi import UploadFile
 from PIL import Image, ImageDraw
+
+from app.api.v1.endpoints.auth import register_user
+from app.api.v1.endpoints.studio import process_product_photo
+from app.models import ImageProcessingJob, User
+from app.schemas.user import UserRegister
 from app.services.image_studio import (
     analyze_image_quality,
-    remove_product_background,
     correct_lighting_and_color,
-    generate_studio_white_background,
     generate_lifestyle_background,
+    generate_studio_white_background,
+    remove_product_background,
 )
-from app.models import User, ImageProcessingJob
-from app.api.v1.endpoints.auth import register_user
-from app.schemas.user import UserRegister
-from app.api.v1.endpoints.studio import process_product_photo
-from fastapi import UploadFile
 
 
 def create_sample_craft_image_bytes() -> bytes:
@@ -48,7 +50,7 @@ def test_background_removal_and_white_studio_generation():
     img_bytes = create_sample_craft_image_bytes()
     transparent_png = remove_product_background(img_bytes)
     assert len(transparent_png) > 0
-    
+
     trans_img = Image.open(io.BytesIO(transparent_png))
     assert trans_img.mode == "RGBA"
 
@@ -71,25 +73,21 @@ def test_lifestyle_background_generation():
 
 def test_studio_process_endpoint(db):
     from tests.conftest import create_test_artisan
+
     user = create_test_artisan(
         db=db,
         email="studio.artisan@craftlens.org",
         full_name="Master Craftsman",
         password="ArtisanStudio#2026",
     )
-    
+
     img_bytes = create_sample_craft_image_bytes()
     upload = UploadFile(
         filename="terracotta_pot.jpg",
         file=io.BytesIO(img_bytes),
     )
 
-    res = process_product_photo(
-        file=upload,
-        lifestyle_theme="wood",
-        db=db,
-        current_user=user
-    )
+    res = process_product_photo(file=upload, lifestyle_theme="wood", db=db, current_user=user)
     assert res.success is True
     data = res.data
     assert data.status == "COMPLETED"

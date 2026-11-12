@@ -1,5 +1,4 @@
-from typing import Optional, Dict, Any
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field
 
 
 class PricingCalculateIn(BaseModel):
@@ -10,14 +9,14 @@ class PricingCalculateIn(BaseModel):
     transportation_cost: float = Field(default=0.0, ge=0)
     overhead_cost: float = Field(default=0.0, ge=0)
     heritage_rarity_score: float = Field(default=1.0, ge=1.0, le=2.0)
-    category_slug: Optional[str] = None
+    category_slug: str | None = None
 
 
 class MarketBenchmarkOut(BaseModel):
-    category_slug: Optional[str] = None
+    category_slug: str | None = None
     sample_comparables_count: int = 0
-    market_min_price: Optional[float] = None
-    market_max_price: Optional[float] = None
+    market_min_price: float | None = None
+    market_max_price: float | None = None
 
 
 class PricingEstimateOut(BaseModel):
@@ -45,5 +44,4 @@ class SavePricingIn(BaseModel):
     wholesale_price: float
     min_wholesale_qty: int = 10
     stock_quantity: int = 5
-    sku: Optional[str] = None
-
+    sku: str | None = None

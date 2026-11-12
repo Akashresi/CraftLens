@@ -1,12 +1,13 @@
 import pytest
-from app.models import User, Product, ProductVariant, Inventory, PricingHistory
-from app.services.pricing_engine import compute_craft_pricing
-from app.schemas.pricing import PricingCalculateIn, SavePricingIn
+
 from app.api.v1.endpoints.auth import register_user
-from app.schemas.user import UserRegister
+from app.api.v1.endpoints.pricing import apply_pricing_to_product, calculate_price_breakdown
 from app.api.v1.endpoints.voice import apply_catalog_to_product
+from app.models import Inventory, PricingHistory, Product, ProductVariant, User
+from app.schemas.pricing import PricingCalculateIn, SavePricingIn
+from app.schemas.user import UserRegister
 from app.schemas.voice import ApplyCatalogIn
-from app.api.v1.endpoints.pricing import calculate_price_breakdown, apply_pricing_to_product
+from app.services.pricing_engine import compute_craft_pricing
 
 
 def test_craft_pricing_calculation():
@@ -33,6 +34,7 @@ def test_craft_pricing_calculation():
 
 def test_apply_pricing_to_product_flow(db):
     from tests.conftest import create_test_artisan
+
     user = create_test_artisan(
         db=db,
         email="pricing.artisan@craftlens.org",
@@ -48,10 +50,10 @@ def test_apply_pricing_to_product_flow(db):
             primary_material="Silk",
             technique="Korvai",
             category_slug="handloom-textiles",
-            source_language="ta"
+            source_language="ta",
         ),
         db=db,
-        current_user=user
+        current_user=user,
     )
     product_id = prod_res.data["product_id"]
 
@@ -62,12 +64,7 @@ def test_apply_pricing_to_product_flow(db):
         min_wholesale_qty=10,
         stock_quantity=8,
     )
-    apply_res = apply_pricing_to_product(
-        product_id=product_id,
-        pricing_in=save_in,
-        db=db,
-        current_user=user
-    )
+    apply_res = apply_pricing_to_product(product_id=product_id, pricing_in=save_in, db=db, current_user=user)
     assert apply_res.success is True
     assert apply_res.data["retail_price"] == 4200.0
     assert apply_res.data["wholesale_price"] == 3500.0
@@ -85,4 +82,3 @@ def test_apply_pricing_to_product_flow(db):
     inv = db.query(Inventory).filter(Inventory.product_variant_id == variant.id).first()
     assert inv is not None
     assert inv.quantity_on_hand == 8
-

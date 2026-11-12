@@ -1,23 +1,23 @@
 import io
 import os
-import time
-from typing import Dict, Any, Tuple
+from typing import Any
+
 import cv2
 import numpy as np
-from PIL import Image, ImageEnhance, ImageFilter
+from PIL import Image, ImageFilter
 
 ENABLE_REMBG = os.getenv("ENABLE_REMBG_DOWNLOAD", "false").lower() == "true"
 REMBG_AVAILABLE = False
 if ENABLE_REMBG:
     try:
-        import onnxruntime
         from rembg import remove as rembg_remove
+
         REMBG_AVAILABLE = True
     except Exception:
         REMBG_AVAILABLE = False
 
 
-def analyze_image_quality(image_bytes: bytes) -> Dict[str, Any]:
+def analyze_image_quality(image_bytes: bytes) -> dict[str, Any]:
     """Analyzes image sharpness (Laplacian variance), exposure, and contrast.
     Returns metrics and a 0.0 to 10.0 overall quality score.
     """
@@ -30,7 +30,6 @@ def analyze_image_quality(image_bytes: bytes) -> Dict[str, Any]:
 
     # 1. Blur Detection via Laplacian Variance
     lap_var = float(cv2.Laplacian(gray, cv2.CV_64F).var())
-    blur_score = min(10.0, max(0.0, (lap_var / 30.0)))
     is_blurry = bool(lap_var < 90.0)
 
     # 2. Exposure Analysis
@@ -65,9 +64,7 @@ def analyze_image_quality(image_bytes: bytes) -> Dict[str, Any]:
         "is_overexposed": is_overexposed,
         "is_low_contrast": is_low_contrast,
         "recommendations": (
-            "Hold camera steady or use better lighting"
-            if is_blurry
-            else "Lighting is good for studio processing"
+            "Hold camera steady or use better lighting" if is_blurry else "Lighting is good for studio processing"
         ),
     }
 
@@ -85,6 +82,8 @@ def remove_product_background(image_bytes: bytes) -> bytes:
     # OpenCV GrabCut + morphological refinement
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    if img is None:
+        raise ValueError("Unable to decode image for background removal")
     h, w = img.shape[:2]
 
     mask = np.zeros((h, w), np.uint8)
@@ -111,12 +110,12 @@ def correct_lighting_and_color(image_bytes: bytes) -> bytes:
         return image_bytes
 
     lab = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2LAB)
-    l, a, b = cv2.split(lab)
+    l_channel, a_channel, b_channel = cv2.split(lab)
 
     clahe = cv2.createCLAHE(clipLimit=2.2, tileGridSize=(8, 8))
-    cl = clahe.apply(l)
+    cl = clahe.apply(l_channel)
 
-    limg = cv2.merge((cl, a, b))
+    limg = cv2.merge((cl, a_channel, b_channel))
     enhanced_bgr = cv2.cvtColor(limg, cv2.COLOR_LAB2BGR)
 
     gaussian = cv2.GaussianBlur(enhanced_bgr, (0, 0), 2.0)

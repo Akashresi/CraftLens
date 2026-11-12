@@ -1,6 +1,6 @@
-from typing import Optional
 from datetime import datetime
-from pydantic import BaseModel, Field, ConfigDict
+
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class ArtisanApplicationCreate(BaseModel):
@@ -9,13 +9,13 @@ class ArtisanApplicationCreate(BaseModel):
     experience_years: int = Field(default=1, ge=0, le=100)
     city: str = Field(..., min_length=2, max_length=100)
     state: str = Field(..., min_length=2, max_length=100)
-    portfolio_url: Optional[str] = Field(None, max_length=500)
+    portfolio_url: str | None = Field(None, max_length=500)
     craft_description: str = Field(..., min_length=10, max_length=5000)
-    supporting_documents_url: Optional[str] = Field(None, max_length=500)
+    supporting_documents_url: str | None = Field(None, max_length=500)
 
 
 class ArtisanApplicationReviewIn(BaseModel):
-    reviewer_notes: Optional[str] = Field(None, max_length=2000)
+    reviewer_notes: str | None = Field(None, max_length=2000)
 
 
 class ArtisanApplicationOut(BaseModel):
@@ -23,20 +23,19 @@ class ArtisanApplicationOut(BaseModel):
 
     id: str
     user_id: str
-    applicant_email: Optional[str] = None
-    applicant_phone: Optional[str] = None
+    applicant_email: str | None = None
+    applicant_phone: str | None = None
     full_name: str
     craft_specialization: str
     experience_years: int
     city: str
     state: str
-    portfolio_url: Optional[str] = None
+    portfolio_url: str | None = None
     craft_description: str
-    supporting_documents_url: Optional[str] = None
+    supporting_documents_url: str | None = None
     status: str
-    reviewer_notes: Optional[str] = None
-    reviewed_by_user_id: Optional[str] = None
-    reviewed_at: Optional[datetime] = None
+    reviewer_notes: str | None = None
+    reviewed_by_user_id: str | None = None
+    reviewed_at: datetime | None = None
     created_at: datetime
     updated_at: datetime
-

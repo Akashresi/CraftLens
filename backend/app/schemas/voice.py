@@ -1,5 +1,4 @@
-from typing import Optional, List, Dict, Any
-from pydantic import BaseModel, Field, ConfigDict
+from pydantic import BaseModel, Field
 
 
 class VoiceTranscribeOut(BaseModel):
@@ -11,7 +10,7 @@ class VoiceTranscribeOut(BaseModel):
 class VoiceCatalogGenerateIn(BaseModel):
     transcript: str = Field(..., min_length=5)
     source_language: str = Field(default="ta", description="ta, hi, en, te, kn, ml")
-    craft_context: Optional[str] = None
+    craft_context: str | None = None
 
 
 class GeneratedCatalogOut(BaseModel):
@@ -21,20 +20,19 @@ class GeneratedCatalogOut(BaseModel):
     description_hi: str
     primary_material: str
     technique: str
-    seo_keywords: List[str]
+    seo_keywords: list[str]
     suggested_category_slug: str
 
 
 class ApplyCatalogIn(BaseModel):
-    product_id: Optional[str] = None
+    product_id: str | None = None
     title: str
     summary: str
     primary_material: str
     technique: str
     category_slug: str
-    title_hi: Optional[str] = None
-    description_hi: Optional[str] = None
-    seo_keywords: List[str] = []
-    source_transcript: Optional[str] = None
+    title_hi: str | None = None
+    description_hi: str | None = None
+    seo_keywords: list[str] = []
+    source_transcript: str | None = None
     source_language: str = "ta"
-

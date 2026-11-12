@@ -1,14 +1,15 @@
 import pytest
-from app.models import User, Product, ProductVariant, Inventory, Order, StockMovement, Payment
+
 from app.api.v1.endpoints.auth import register_user
-from app.schemas.user import UserRegister
-from app.api.v1.endpoints.voice import apply_catalog_to_product
-from app.schemas.voice import ApplyCatalogIn
+from app.api.v1.endpoints.marketplace import discover_products, get_product_detail, list_categories
+from app.api.v1.endpoints.orders import create_order_checkout, get_artisan_incoming_orders, get_buyer_orders
 from app.api.v1.endpoints.pricing import apply_pricing_to_product
+from app.api.v1.endpoints.voice import apply_catalog_to_product
+from app.models import Inventory, Order, Payment, Product, ProductVariant, StockMovement, User
+from app.schemas.marketplace import CartItemIn, OrderCreateIn
 from app.schemas.pricing import SavePricingIn
-from app.schemas.marketplace import OrderCreateIn, CartItemIn
-from app.api.v1.endpoints.marketplace import list_categories, discover_products, get_product_detail
-from app.api.v1.endpoints.orders import create_order_checkout, get_buyer_orders, get_artisan_incoming_orders
+from app.schemas.user import UserRegister
+from app.schemas.voice import ApplyCatalogIn
 
 
 def test_marketplace_discovery_and_checkout_flow(db):
@@ -19,6 +20,7 @@ def test_marketplace_discovery_and_checkout_flow(db):
 
     # 2. Register artisan & create product
     from tests.conftest import create_test_artisan
+
     artisan_user = create_test_artisan(
         db=db,
         email="market.artisan@craftlens.org",
@@ -33,10 +35,10 @@ def test_marketplace_discovery_and_checkout_flow(db):
             primary_material="Wrightia tinctoria wood",
             technique="Lathe turning & natural lacquering",
             category_slug="woodcraft-toys",
-            source_language="kn"
+            source_language="kn",
         ),
         db=db,
-        current_user=artisan_user
+        current_user=artisan_user,
     )
     product_id = prod_res.data["product_id"]
 
@@ -49,16 +51,12 @@ def test_marketplace_discovery_and_checkout_flow(db):
             stock_quantity=10,
         ),
         db=db,
-        current_user=artisan_user
+        current_user=artisan_user,
     )
     variant_id = pricing_res.data["variant_id"]
 
     # 3. Discover products in marketplace
-    discover_res = discover_products(
-        category_slug="woodcraft-toys",
-        search="Channapatna",
-        db=db
-    )
+    discover_res = discover_products(category_slug="woodcraft-toys", search="Channapatna", db=db)
     assert discover_res.success is True
     assert discover_res.data.total >= 1
     found_prod = discover_res.data.items[0]
@@ -75,9 +73,9 @@ def test_marketplace_discovery_and_checkout_flow(db):
             email="craft.enthusiast@gmail.com",
             password="BuyerPass#123",
             full_name="Pooja Sharma",
-            role_code="RETAIL_BUYER"
+            role_code="RETAIL_BUYER",
         ),
-        db=db
+        db=db,
     )
     buyer_user = db.query(User).filter(User.email == "craft.enthusiast@gmail.com").first()
 
@@ -85,7 +83,7 @@ def test_marketplace_discovery_and_checkout_flow(db):
         items=[CartItemIn(variant_id=variant_id, quantity=2)],
         order_type="RETAIL",
         delivery_address={"street": "45 Green Park", "city": "Bengaluru", "pincode": "560001"},
-        payment_method="SANDBOX"
+        payment_method="SANDBOX",
     )
     order_res = create_order_checkout(order_in=checkout_payload, db=db, current_user=buyer_user)
     assert order_res.success is True
@@ -113,4 +111,3 @@ def test_marketplace_discovery_and_checkout_flow(db):
     assert len(artisan_orders.data) == 1
     assert artisan_orders.data[0]["quantity"] == 2
     assert artisan_orders.data[0]["total_payout"] == 1700.0
-

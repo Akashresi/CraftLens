@@ -1,13 +1,14 @@
 import uuid
-from fastapi import APIRouter, Depends, UploadFile, File, Form, HTTPException, status
+
+from fastapi import APIRouter, Depends, File, Form, HTTPException, UploadFile
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
-from app.models import User, Product, Category, GeneratedDescription, ProductTranslation, AIJob, ArtisanProfile
-from app.schemas.voice import VoiceTranscribeOut, VoiceCatalogGenerateIn, GeneratedCatalogOut, ApplyCatalogIn
-from app.schemas.common import APIResponse
 from app.api.deps import get_current_active_user, require_role
-from app.services.voice_catalog import transcribe_regional_audio, extract_and_generate_catalog
+from app.db.session import get_db
+from app.models import AIJob, ArtisanProfile, Category, GeneratedDescription, Product, ProductTranslation, User
+from app.schemas.common import APIResponse
+from app.schemas.voice import ApplyCatalogIn, GeneratedCatalogOut, VoiceCatalogGenerateIn, VoiceTranscribeOut
+from app.services.voice_catalog import extract_and_generate_catalog, transcribe_regional_audio
 
 router = APIRouter()
 
@@ -83,6 +84,8 @@ def apply_catalog_to_product(
     category = db.query(Category).filter(Category.slug == payload.category_slug).first()
     if not category:
         category = db.query(Category).first()
+    if not category:
+        raise HTTPException(status_code=400, detail="No craft categories configured")
 
     slug = payload.title.lower().replace(" ", "-")[:80] + "-" + str(uuid.uuid4())[:8]
 
@@ -139,4 +142,3 @@ def apply_catalog_to_product(
         message="Product listing created with multilingual descriptions",
         data={"product_id": product.id, "slug": product.slug},
     )
-

@@ -1,9 +1,11 @@
-import pytest
-from app.models import User, ConsentRecord, AuditLog
-from app.api.v1.endpoints.auth import register_user
-from app.schemas.user import UserRegister
-from app.api.v1.endpoints.compliance import record_user_consent, get_user_consents, ConsentCreateIn
 from unittest.mock import MagicMock
+
+import pytest
+
+from app.api.v1.endpoints.auth import register_user
+from app.api.v1.endpoints.compliance import ConsentCreateIn, get_user_consents, record_user_consent
+from app.models import AuditLog, ConsentRecord, User
+from app.schemas.user import UserRegister
 
 
 def test_dpdp_consent_and_audit_logging_flow(db):
@@ -14,7 +16,7 @@ def test_dpdp_consent_and_audit_logging_flow(db):
             password="SecurePass#123",
             full_name="Craft Artisan Privacy Test",
         ),
-        db=db
+        db=db,
     )
     user = db.query(User).filter(User.email == "privacy.artisan@craftlens.org").first()
 
@@ -23,10 +25,7 @@ def test_dpdp_consent_and_audit_logging_flow(db):
     request.client.host = "192.168.1.100"
 
     # 2. Record explicit DPDP consent
-    consent_in = ConsentCreateIn(
-        consent_type="DPDP_PRIVACY_POLICY",
-        granted=True
-    )
+    consent_in = ConsentCreateIn(consent_type="DPDP_PRIVACY_POLICY", granted=True)
     res = record_user_consent(consent_in=consent_in, request=request, db=db, current_user=user)
     assert res.success is True
     assert res.data.consent_type == "DPDP_PRIVACY_POLICY"
@@ -43,4 +42,3 @@ def test_dpdp_consent_and_audit_logging_flow(db):
     list_res = get_user_consents(db=db, current_user=user)
     assert len(list_res.data) == 1
     assert list_res.data[0].consent_type == "DPDP_PRIVACY_POLICY"
-

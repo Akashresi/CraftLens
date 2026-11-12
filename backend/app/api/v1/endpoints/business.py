@@ -1,24 +1,24 @@
-from typing import List
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.api.deps import require_role
 from app.db.session import get_db
-from app.models import User, ArtisanProfile, BusinessExpense
+from app.models import ArtisanProfile, BusinessExpense, User
 from app.schemas.business import (
-    DashboardMetricsOut,
-    AssistantQueryIn,
     AssistantAnswerOut,
+    AssistantQueryIn,
+    DashboardMetricsOut,
+    ExpenseCreateIn,
     MarketingGenerateIn,
     MarketingGenerateOut,
-    ExpenseCreateIn,
 )
 from app.schemas.common import APIResponse
-from app.api.deps import get_current_active_user, require_role
 from app.services.business_manager import (
-    get_artisan_dashboard_metrics,
     answer_business_assistant_query,
     create_promotional_copy,
+    get_artisan_dashboard_metrics,
 )
 
 router = APIRouter()
@@ -102,7 +102,7 @@ def record_business_expense(
         category=expense_in.category,
         amount=expense_in.amount,
         notes=expense_in.notes,
-        expense_date=datetime.now(timezone.utc),
+        expense_date=datetime.now(UTC),
     )
     db.add(expense)
     db.commit()
@@ -113,4 +113,3 @@ def record_business_expense(
         message="Expense recorded successfully",
         data={"expense_id": expense.id, "amount": float(expense.amount), "category": expense.category},
     )
-

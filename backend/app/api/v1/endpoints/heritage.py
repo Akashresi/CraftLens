@@ -1,19 +1,19 @@
-import uuid
 import hashlib
-from datetime import datetime, timezone
-from fastapi import APIRouter, Depends, HTTPException, status
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
+from app.api.deps import require_role
 from app.db.session import get_db
-from app.models import User, Product, ArtisanProfile, ProvenanceRecord, ProductQR, CraftOrigin
+from app.models import Product, ProductQR, ProvenanceRecord, User
+from app.schemas.common import APIResponse
 from app.schemas.heritage import (
+    ProductQROut,
     ProvenanceCreateIn,
     ProvenanceRecordOut,
-    ProductQROut,
     PublicHeritageStoryOut,
 )
-from app.schemas.common import APIResponse
-from app.api.deps import get_current_active_user, require_role
 from app.services.heritage_service import (
     create_provenance_signature,
     generate_qr_code_image,
@@ -69,7 +69,7 @@ def generate_product_qr(
     if not product:
         raise HTTPException(status_code=404, detail="Product not found")
 
-    qr_hash = hashlib.sha256(f"{product.id}:{product.slug}:CraftLensQR".encode("utf-8")).hexdigest()[:16]
+    qr_hash = hashlib.sha256(f"{product.id}:{product.slug}:CraftLensQR".encode()).hexdigest()[:16]
     public_url = f"http://localhost:3000/heritage/{qr_hash}"
 
     # Generate QR Code PNG
@@ -120,7 +120,7 @@ def verify_heritage_qr(
 
     # Increment scan metrics
     qr_record.scan_count += 1
-    qr_record.last_scanned_at = datetime.now(timezone.utc)
+    qr_record.last_scanned_at = datetime.now(UTC)
     db.commit()
 
     product = qr_record.product
@@ -141,7 +141,9 @@ def verify_heritage_qr(
         primary_material=product.primary_material,
         technique=product.technique,
         craft_origin_name=product.craft_origin.name if product.craft_origin else None,
-        geographical_indication_code=product.craft_origin.geographical_indication_code if product.craft_origin else None,
+        geographical_indication_code=product.craft_origin.geographical_indication_code
+        if product.craft_origin
+        else None,
         artisan_name=user.full_name if user else "Verified Master Artisan",
         artisan_city=artisan.city if artisan else None,
         artisan_state=artisan.state if artisan else None,
@@ -159,4 +161,3 @@ def verify_heritage_qr(
         message="Authentic craft heritage verified",
         data=story,
     )
-

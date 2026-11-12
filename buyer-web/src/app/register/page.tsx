@@ -9,7 +9,7 @@ import { Sparkles, ArrowRight, Check } from "lucide-react";
 export default function RegisterPage() {
   const router = useRouter();
   const { register } = useAuth();
-  const [role, setRole] = useState<"ARTISAN" | "RETAIL_BUYER" | "WHOLESALE_BUYER">("ARTISAN");
+  const [role, setRole] = useState<"RETAIL_BUYER" | "WHOLESALE_BUYER">("RETAIL_BUYER");
   const [fullName, setFullName] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -34,11 +34,7 @@ export default function RegisterPage() {
     setLoading(false);
 
     if (res.success) {
-      if (role === "ARTISAN") {
-        router.push("/onboarding");
-      } else {
-        router.push("/");
-      }
+      router.push("/");
     } else {
       setError(res.error || "Registration failed");
     }
@@ -67,18 +63,7 @@ export default function RegisterPage() {
             <label className="block text-xs font-semibold text-craft-text uppercase tracking-wider mb-2">
               I am registering as:
             </label>
-            <div className="grid grid-cols-3 gap-2">
-              <button
-                type="button"
-                onClick={() => setRole("ARTISAN")}
-                className={`py-2 px-1 text-center rounded-lg border text-xs font-semibold transition-all ${
-                  role === "ARTISAN"
-                    ? "border-craft-primary bg-craft-primary text-white shadow-subtle"
-                    : "border-craft-border bg-craft-background text-craft-text hover:bg-craft-surface-hover"
-                }`}
-              >
-                Artisan / SHG
-              </button>
+            <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
                 onClick={() => setRole("RETAIL_BUYER")}
@@ -102,6 +87,9 @@ export default function RegisterPage() {
                 B2B Wholesale
               </button>
             </div>
+            <p className="mt-2 text-[11px] text-craft-muted">
+              Artisans &amp; SHGs: register as a Retail Buyer first, then submit an artisan verification application from your profile.
+            </p>
           </div>
 
           {error && (

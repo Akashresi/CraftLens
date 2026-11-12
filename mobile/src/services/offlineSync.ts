@@ -118,3 +118,30 @@ class OfflineSyncEngine {
 
 export const offlineSyncEngine = new OfflineSyncEngine();
 
+// STUB: Compatibility wrapper until Phase 5 full expo-sqlite sync implementation
+export const offlineSyncService = {
+  async saveDraft(input: {
+    title: string;
+    description: string;
+    category: string;
+    materials: string;
+    voiceTranscript?: string;
+    language?: string;
+  }): Promise<ProductDraft> {
+    return offlineSyncEngine.saveDraft({
+      local_id: `draft-${Date.now()}`,
+      title: input.title,
+      summary: input.description,
+      primary_material: input.materials,
+      technique: input.category,
+      category_slug: input.category.toLowerCase().replace(/[^a-z0-9]+/g, "-"),
+      voice_transcript: input.voiceTranscript,
+    });
+  },
+  async syncDraftsToServer(authToken = ""): Promise<{ syncedCount: number }> {
+    const res = await offlineSyncEngine.syncAllPending(authToken);
+    return { syncedCount: res.filter((d) => d.sync_status === "SYNCED").length };
+  },
+};
+
+

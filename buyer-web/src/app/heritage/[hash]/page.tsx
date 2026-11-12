@@ -140,7 +140,7 @@ export default function HeritageVerificationPage() {
       <div className="bg-craft-surface border border-craft-border rounded-xl p-6 sm:p-8 space-y-4 shadow-subtle">
         <div className="flex items-center space-x-2 text-craft-primary font-bold text-sm border-b border-craft-border pb-3">
           <Sparkles className="w-4 h-4 text-craft-secondary" />
-          <span>The Maker's Story (In Regional Mother Tongue)</span>
+          <span>The Maker&apos;s Story (In Regional Mother Tongue)</span>
         </div>
 
         <div className="space-y-4">
@@ -149,7 +149,7 @@ export default function HeritageVerificationPage() {
               தமிழ் (Tamil Audio Transcript)
             </span>
             <p className="text-sm font-medium text-craft-text leading-relaxed">
-              "{provenance.story_tamil}"
+              &ldquo;{provenance.story_tamil}&rdquo;
             </p>
           </div>
 
@@ -158,7 +158,7 @@ export default function HeritageVerificationPage() {
               English Translation (AI Verified)
             </span>
             <p className="text-xs text-craft-muted leading-relaxed">
-              "{provenance.story_english}"
+              &ldquo;{provenance.story_english}&rdquo;
             </p>
           </div>
         </div>

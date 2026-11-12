@@ -1,13 +1,13 @@
-from datetime import datetime, timezone
-from typing import List, Optional
-from pydantic import BaseModel, Field, ConfigDict
-from fastapi import APIRouter, Depends, Request, HTTPException, status
+from datetime import UTC, datetime
+
+from fastapi import APIRouter, Depends, Request
+from pydantic import BaseModel, ConfigDict, Field
 from sqlalchemy.orm import Session
 
-from app.db.session import get_db
-from app.models import User, ConsentRecord, AuditLog
-from app.schemas.common import APIResponse
 from app.api.deps import get_current_active_user
+from app.db.session import get_db
+from app.models import AuditLog, ConsentRecord, User
+from app.schemas.common import APIResponse
 
 router = APIRouter()
 
@@ -45,7 +45,7 @@ def record_user_consent(
         consent_type=consent_in.consent_type,
         granted=consent_in.granted,
         ip_address=ip,
-        recorded_at=datetime.now(timezone.utc),
+        recorded_at=datetime.now(UTC),
     )
     db.add(consent)
 
@@ -68,7 +68,7 @@ def record_user_consent(
     )
 
 
-@router.get("/consent", response_model=APIResponse[List[ConsentRecordOut]])
+@router.get("/consent", response_model=APIResponse[list[ConsentRecordOut]])
 def get_user_consents(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
@@ -85,4 +85,3 @@ def get_user_consents(
         message="Active consents retrieved",
         data=[ConsentRecordOut.model_validate(c) for c in consents],
     )
-

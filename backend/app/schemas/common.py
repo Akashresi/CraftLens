@@ -1,5 +1,6 @@
-from typing import Generic, TypeVar, Optional, List, Any
-from pydantic import BaseModel, Field
+from typing import Generic, TypeVar
+
+from pydantic import BaseModel
 
 T = TypeVar("T")
 
@@ -15,14 +16,13 @@ class HealthResponse(BaseModel):
 class APIResponse(BaseModel, Generic[T]):
     success: bool = True
     message: str = "Operation completed successfully"
-    data: Optional[T] = None
-    error: Optional[str] = None
+    data: T | None = None
+    error: str | None = None
 
 
 class PaginatedResponse(BaseModel, Generic[T]):
-    items: List[T]
+    items: list[T]
     total: int
     page: int = 1
     page_size: int = 20
     pages: int = 1
-

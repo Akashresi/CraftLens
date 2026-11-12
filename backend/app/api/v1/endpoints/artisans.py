@@ -1,9 +1,9 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
-from datetime import datetime, timezone
 
+from app.api.deps import require_role
 from app.db.session import get_db
-from app.models import User, ArtisanProfile, ArtisanVerification
+from app.models import ArtisanProfile, ArtisanVerification, User
 from app.schemas.artisan import (
     ArtisanProfileOut,
     ArtisanProfileUpdate,
@@ -11,7 +11,6 @@ from app.schemas.artisan import (
     ArtisanVerificationOut,
 )
 from app.schemas.common import APIResponse
-from app.api.deps import get_current_active_user, require_role
 
 router = APIRouter()
 
@@ -22,11 +21,7 @@ def get_my_artisan_profile(
     current_user: User = Depends(require_role("ARTISAN")),
 ):
     """Retrieves profile and verification history for the authenticated artisan."""
-    profile = (
-        db.query(ArtisanProfile)
-        .filter(ArtisanProfile.user_id == current_user.id)
-        .first()
-    )
+    profile = db.query(ArtisanProfile).filter(ArtisanProfile.user_id == current_user.id).first()
     if not profile:
         profile = ArtisanProfile(
             user_id=current_user.id,
@@ -51,11 +46,7 @@ def update_my_artisan_profile(
     current_user: User = Depends(require_role("ARTISAN")),
 ):
     """Updates studio location, experience, craft specialization, and bank details."""
-    profile = (
-        db.query(ArtisanProfile)
-        .filter(ArtisanProfile.user_id == current_user.id)
-        .first()
-    )
+    profile = db.query(ArtisanProfile).filter(ArtisanProfile.user_id == current_user.id).first()
     if not profile:
         profile = ArtisanProfile(user_id=current_user.id, craft_specialization="")
         db.add(profile)
@@ -80,11 +71,7 @@ def submit_artisan_verification(
     current_user: User = Depends(require_role("ARTISAN")),
 ):
     """Submits government or craft ID (Pehchan card, Weaver ID, Aadhaar) for artisan verification."""
-    profile = (
-        db.query(ArtisanProfile)
-        .filter(ArtisanProfile.user_id == current_user.id)
-        .first()
-    )
+    profile = db.query(ArtisanProfile).filter(ArtisanProfile.user_id == current_user.id).first()
     if not profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -116,11 +103,7 @@ def get_public_artisan_profile(
     db: Session = Depends(get_db),
 ):
     """Public storefront view of an artisan's profile, craft background, and verified status."""
-    profile = (
-        db.query(ArtisanProfile)
-        .filter(ArtisanProfile.id == artisan_id)
-        .first()
-    )
+    profile = db.query(ArtisanProfile).filter(ArtisanProfile.id == artisan_id).first()
     if not profile:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -132,4 +115,3 @@ def get_public_artisan_profile(
         message="Public artisan profile loaded",
         data=ArtisanProfileOut.model_validate(profile),
     )
-

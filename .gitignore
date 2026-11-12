@@ -9,6 +9,11 @@ __pycache__/
 *.so
 .Python
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
+.coverage
+htmlcov/
+coverage.xml
 
 # Databases
 *.db
@@ -26,6 +31,7 @@ dist/
 build/
 .expo/
 *.log
+*.tsbuildinfo
 
 # Environment variables
 .env

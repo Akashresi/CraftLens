@@ -1,23 +1,25 @@
 import pytest
-from app.models import User, ArtisanProfile, Buyer
-from app.schemas.user import UserRegister, UserUpdate, PasswordChange
-from app.schemas.artisan import ArtisanProfileUpdate, ArtisanVerificationCreate
-from app.schemas.buyer import BuyerProfileUpdate, BuyerBusinessProfileUpdate
+
+from app.api.v1.endpoints.artisans import get_my_artisan_profile, submit_artisan_verification, update_my_artisan_profile
 from app.api.v1.endpoints.auth import register_user
-from app.api.v1.endpoints.users import update_user_me, change_user_password
-from app.api.v1.endpoints.artisans import get_my_artisan_profile, update_my_artisan_profile, submit_artisan_verification
-from app.api.v1.endpoints.buyers import get_my_buyer_profile, update_my_buyer_profile, update_my_business_profile
+from app.api.v1.endpoints.buyers import get_my_buyer_profile, update_my_business_profile, update_my_buyer_profile
+from app.api.v1.endpoints.users import change_user_password, update_user_me
+from app.models import ArtisanProfile, Buyer, User
+from app.schemas.artisan import ArtisanProfileUpdate, ArtisanVerificationCreate
+from app.schemas.buyer import BuyerBusinessProfileUpdate, BuyerProfileUpdate
+from app.schemas.user import PasswordChange, UserRegister, UserUpdate
 
 
 def test_artisan_profile_and_verification_flow(db):
     from tests.conftest import create_test_artisan
+
     # 1. Create artisan
     user = create_test_artisan(
         db=db,
         email="lakshmi.potter@craftlens.org",
         full_name="Lakshmi Potter",
         password="TerracottaCraft#2026",
-        preferred_language="hi"
+        preferred_language="hi",
     )
     assert user is not None
 
@@ -30,7 +32,7 @@ def test_artisan_profile_and_verification_flow(db):
         city="Gorakhpur",
         state="Uttar Pradesh",
         pincode="273001",
-        bank_account_configured=True
+        bank_account_configured=True,
     )
     res = update_my_artisan_profile(profile_in=profile_update, db=db, current_user=user)
     assert res.success is True
@@ -42,7 +44,7 @@ def test_artisan_profile_and_verification_flow(db):
     verif_in = ArtisanVerificationCreate(
         document_type="PEHCHAN_CARD",
         document_number="PEH-UP-123456",
-        document_url="https://craftlens-storage.org/docs/pehchan_card.pdf"
+        document_url="https://craftlens-storage.org/docs/pehchan_card.pdf",
     )
     verif_res = submit_artisan_verification(verification_in=verif_in, db=db, current_user=user)
     assert verif_res.success is True
@@ -62,9 +64,9 @@ def test_buyer_wholesale_profile_flow(db):
             password="B2BBuyerSecure#123",
             full_name="Rajesh Corporate Buyer",
             role_code="WHOLESALE_BUYER",
-            preferred_language="en"
+            preferred_language="en",
         ),
-        db=db
+        db=db,
     )
     user = db.query(User).filter(User.email == "procurement@heritageexports.com").first()
     assert user is not None
@@ -72,7 +74,7 @@ def test_buyer_wholesale_profile_flow(db):
     # 2. Update buyer addresses
     address_in = BuyerProfileUpdate(
         default_shipping_address={"street": "12 Commercial Blvd", "city": "Mumbai", "pincode": "400001"},
-        default_billing_address={"street": "12 Commercial Blvd", "city": "Mumbai", "pincode": "400001"}
+        default_billing_address={"street": "12 Commercial Blvd", "city": "Mumbai", "pincode": "400001"},
     )
     buyer_res = update_my_buyer_profile(profile_in=address_in, db=db, current_user=user)
     assert buyer_res.success is True
@@ -83,10 +85,9 @@ def test_buyer_wholesale_profile_flow(db):
         company_name="Heritage Handicrafts Export Ltd",
         gst_number="27AABCU9603R1ZM",
         pan_number="AABCU9603R",
-        website="https://heritageexports.com"
+        website="https://heritageexports.com",
     )
     biz_res = update_my_business_profile(business_in=business_in, db=db, current_user=user)
     assert biz_res.success is True
     assert biz_res.data.company_name == "Heritage Handicrafts Export Ltd"
     assert biz_res.data.gst_number == "27AABCU9603R1ZM"
-

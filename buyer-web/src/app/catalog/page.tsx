@@ -112,10 +112,11 @@ export default function CatalogPage() {
 
   useEffect(() => {
     // Attempt fetch from backend marketplace API
-    api.get<Product[]>("/marketplace/products")
+    api.get<{ items?: Product[] } | Product[]>("/marketplace/products")
       .then((data) => {
-        if (Array.isArray(data) && data.length > 0) {
-          setProducts(data);
+        const list = Array.isArray(data) ? data : data?.items;
+        if (Array.isArray(list) && list.length > 0) {
+          setProducts(list);
         }
       })
       .catch(() => {
@@ -176,7 +177,7 @@ export default function CatalogPage() {
       {/* Notification Toast */}
       {cartSuccess && (
         <div className="p-3 bg-craft-success/10 border border-craft-success/30 rounded-lg text-craft-success text-xs font-semibold flex items-center justify-between">
-          <span>✓ Added "{cartSuccess}" to your shopping bag!</span>
+          <span>✓ Added &ldquo;{cartSuccess}&rdquo; to your shopping bag!</span>
           <Link href="/cart" className="underline font-bold">View Bag</Link>
         </div>
       )}

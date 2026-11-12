@@ -1,20 +1,22 @@
 import pytest
-from app.models import User, Product, PurchaseRequest, Quotation, PurchaseOrder
+
 from app.api.v1.endpoints.auth import register_user
-from app.schemas.user import UserRegister
-from app.api.v1.endpoints.voice import apply_catalog_to_product
-from app.schemas.voice import ApplyCatalogIn
-from app.schemas.b2b import PurchaseRequestCreate, QuotationCreate
 from app.api.v1.endpoints.b2b import (
-    submit_request_for_quotation,
+    accept_quotation_and_generate_po,
     get_artisan_incoming_rfqs,
     submit_artisan_quotation,
-    accept_quotation_and_generate_po,
+    submit_request_for_quotation,
 )
+from app.api.v1.endpoints.voice import apply_catalog_to_product
+from app.models import Product, PurchaseOrder, PurchaseRequest, Quotation, User
+from app.schemas.b2b import PurchaseRequestCreate, QuotationCreate
+from app.schemas.user import UserRegister
+from app.schemas.voice import ApplyCatalogIn
 
 
 def test_b2b_rfq_and_purchase_order_flow(db):
     from tests.conftest import create_test_artisan
+
     # 1. Register Artisan
     artisan_user = create_test_artisan(
         db=db,
@@ -31,10 +33,10 @@ def test_b2b_rfq_and_purchase_order_flow(db):
             primary_material="Brass & Bell Metal",
             technique="Lost Wax Dhokra Casting",
             category_slug="metal-brassware",
-            source_language="hi"
+            source_language="hi",
         ),
         db=db,
-        current_user=artisan_user
+        current_user=artisan_user,
     )
     product_id = prod_res.data["product_id"]
 
@@ -44,9 +46,9 @@ def test_b2b_rfq_and_purchase_order_flow(db):
             email="boutique.procure@fabindia-mock.com",
             password="BuyerPass#123",
             full_name="Ananya Corporate Retailer",
-            role_code="WHOLESALE_BUYER"
+            role_code="WHOLESALE_BUYER",
         ),
-        db=db
+        db=db,
     )
     buyer_user = db.query(User).filter(User.email == "boutique.procure@fabindia-mock.com").first()
 
@@ -55,7 +57,7 @@ def test_b2b_rfq_and_purchase_order_flow(db):
         product_id=product_id,
         target_quantity=50,
         target_unit_price=1200.0,
-        specifications="Custom gift packaging with artisan story card inside each box"
+        specifications="Custom gift packaging with artisan story card inside each box",
     )
     rfq_res = submit_request_for_quotation(rfq_in=rfq_payload, db=db, current_user=buyer_user)
     assert rfq_res.success is True
@@ -72,7 +74,7 @@ def test_b2b_rfq_and_purchase_order_flow(db):
         purchase_request_id=rfq_id,
         quoted_unit_price=1150.0,
         lead_time_days=20,
-        terms_conditions="Handmade batch production. Delivery within 20 working days."
+        terms_conditions="Handmade batch production. Delivery within 20 working days.",
     )
     quote_res = submit_artisan_quotation(quote_in=quote_payload, db=db, current_user=artisan_user)
     assert quote_res.success is True
@@ -81,11 +83,7 @@ def test_b2b_rfq_and_purchase_order_flow(db):
     assert quote_res.data.status == "PENDING"
 
     # 6. Buyer accepts quotation -> Generates Purchase Order (PO)
-    po_res = accept_quotation_and_generate_po(
-        quotation_id=quotation_id,
-        db=db,
-        current_user=buyer_user
-    )
+    po_res = accept_quotation_and_generate_po(quotation_id=quotation_id, db=db, current_user=buyer_user)
     assert po_res.success is True
     po_data = po_res.data
     assert po_data.po_number.startswith("PO-")
@@ -97,4 +95,3 @@ def test_b2b_rfq_and_purchase_order_flow(db):
     assert po is not None
     assert po.quotation.status == "ACCEPTED"
     assert po.quotation.purchase_request.status == "ACCEPTED"
-

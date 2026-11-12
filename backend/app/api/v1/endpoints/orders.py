@@ -1,26 +1,26 @@
 import uuid
-from datetime import datetime, timezone
-from typing import List
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from sqlalchemy import desc
+from datetime import UTC, datetime
 
+from fastapi import APIRouter, Depends, HTTPException
+from sqlalchemy import desc
+from sqlalchemy.orm import Session
+
+from app.api.deps import get_current_active_user, require_role
 from app.db.session import get_db
 from app.models import (
-    User,
+    ArtisanProfile,
     Buyer,
+    Inventory,
     Order,
     OrderItem,
-    ProductVariant,
-    Inventory,
-    StockMovement,
     Payment,
+    ProductVariant,
     Shipment,
-    ArtisanProfile,
+    StockMovement,
+    User,
 )
-from app.schemas.marketplace import OrderCreateIn, OrderOut
 from app.schemas.common import APIResponse
-from app.api.deps import get_current_active_user, require_role
+from app.schemas.marketplace import OrderCreateIn, OrderOut
 
 router = APIRouter()
 
@@ -98,7 +98,7 @@ def create_order_checkout(
 
     shipping_fee = 0.0 if subtotal >= 1000.0 else 100.0
     total_amount = round(subtotal + shipping_fee, 2)
-    order_num = f"ORD-{datetime.now(timezone.utc).strftime('%Y%m%d')}-{str(uuid.uuid4())[:6].upper()}"
+    order_num = f"ORD-{datetime.now(UTC).strftime('%Y%m%d')}-{str(uuid.uuid4())[:6].upper()}"
 
     # 2. Create Order
     new_order = Order(
@@ -136,7 +136,7 @@ def create_order_checkout(
         amount=total_amount,
         currency="INR",
         status="SUCCESS",
-        paid_at=datetime.now(timezone.utc),
+        paid_at=datetime.now(UTC),
     )
     db.add(payment)
 
@@ -144,7 +144,7 @@ def create_order_checkout(
     shipment = Shipment(
         order_id=new_order.id,
         carrier="India Post SpeedPost",
-        tracking_number=f"IN-{datetime.now(timezone.utc).strftime('%Y%m')}-{str(uuid.uuid4())[:8].upper()}",
+        tracking_number=f"IN-{datetime.now(UTC).strftime('%Y%m')}-{str(uuid.uuid4())[:8].upper()}",
         status="MANIFESTED",
     )
     db.add(shipment)
@@ -159,7 +159,7 @@ def create_order_checkout(
     )
 
 
-@router.get("/my-orders", response_model=APIResponse[List[OrderOut]])
+@router.get("/my-orders", response_model=APIResponse[list[OrderOut]])
 def get_buyer_orders(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user),
@@ -177,7 +177,7 @@ def get_buyer_orders(
     )
 
 
-@router.get("/artisan-orders", response_model=APIResponse[List[dict]])
+@router.get("/artisan-orders", response_model=APIResponse[list[dict]])
 def get_artisan_incoming_orders(
     db: Session = Depends(get_db),
     current_user: User = Depends(require_role("ARTISAN")),
@@ -187,12 +187,7 @@ def get_artisan_incoming_orders(
     if not profile:
         return APIResponse(success=True, message="Artisan profile not found", data=[])
 
-    items = (
-        db.query(OrderItem)
-        .filter(OrderItem.artisan_id == profile.id)
-        .order_by(desc(OrderItem.id))
-        .all()
-    )
+    items = db.query(OrderItem).filter(OrderItem.artisan_id == profile.id).order_by(desc(OrderItem.id)).all()
 
     results = []
     for it in items:
@@ -214,4 +209,3 @@ def get_artisan_incoming_orders(
         message="Artisan incoming order items retrieved",
         data=results,
     )
-

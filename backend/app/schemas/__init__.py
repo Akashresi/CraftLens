@@ -1,6 +1,6 @@
-from app.schemas.common import HealthResponse, APIResponse, PaginatedResponse
-from app.schemas.user import UserRegister, UserLogin, Token, TokenPayload, UserOut, RoleOut
-from app.schemas.artisan_application import ArtisanApplicationCreate, ArtisanApplicationReviewIn, ArtisanApplicationOut
+from app.schemas.artisan_application import ArtisanApplicationCreate, ArtisanApplicationOut, ArtisanApplicationReviewIn
+from app.schemas.common import APIResponse, HealthResponse, PaginatedResponse
+from app.schemas.user import RoleOut, Token, TokenPayload, UserLogin, UserOut, UserRegister
 
 __all__ = [
     "HealthResponse",
@@ -16,4 +16,3 @@ __all__ = [
     "ArtisanApplicationReviewIn",
     "ArtisanApplicationOut",
 ]
-

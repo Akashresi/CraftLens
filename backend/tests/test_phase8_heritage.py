@@ -1,22 +1,24 @@
 import pytest
-from app.models import User, Product, ProductQR, ProvenanceRecord
+
 from app.api.v1.endpoints.auth import register_user
-from app.schemas.user import UserRegister
+from app.api.v1.endpoints.heritage import generate_product_qr, record_craft_provenance, verify_heritage_qr
 from app.api.v1.endpoints.voice import apply_catalog_to_product
-from app.schemas.voice import ApplyCatalogIn
+from app.models import Product, ProductQR, ProvenanceRecord, User
 from app.schemas.heritage import ProvenanceCreateIn
-from app.api.v1.endpoints.heritage import record_craft_provenance, generate_product_qr, verify_heritage_qr
+from app.schemas.user import UserRegister
+from app.schemas.voice import ApplyCatalogIn
 
 
 def test_heritage_provenance_and_qr_verification_flow(db):
     from tests.conftest import create_test_artisan
+
     # 1. Register Master Artisan
     artisan_user = create_test_artisan(
         db=db,
         email="heritage.master@craftlens.org",
         password="HeritagePass#123",
         full_name="Padma Shri Artisan",
-        preferred_language="hi"
+        preferred_language="hi",
     )
     artisan_user.artisan_profile.verification_level = "GOVT_ID_VERIFIED"
     db.commit()
@@ -29,10 +31,10 @@ def test_heritage_provenance_and_qr_verification_flow(db):
             primary_material="Natural Mineral Pigments & Handmade Paper",
             technique="Madhubani Kachni Line Art",
             category_slug="traditional-painting",
-            source_language="hi"
+            source_language="hi",
         ),
         db=db,
-        current_user=artisan_user
+        current_user=artisan_user,
     )
     product_id = prod_res.data["product_id"]
 
@@ -41,7 +43,7 @@ def test_heritage_provenance_and_qr_verification_flow(db):
         product_id=product_id,
         batch_code="MDB-2026-B01",
         raw_materials_source="Locally sourced cowdung treated paper and soot/indigo pigments from Jitwarpur village",
-        craft_technique_details="Drawn freehand using bamboo nib and cotton swab coloring."
+        craft_technique_details="Drawn freehand using bamboo nib and cotton swab coloring.",
     )
     prov_res = record_craft_provenance(provenance_in=prov_payload, db=db, current_user=artisan_user)
     assert prov_res.success is True
@@ -67,4 +69,3 @@ def test_heritage_provenance_and_qr_verification_flow(db):
     assert story.maker_signature_hash == prov_res.data.maker_signature_hash
     assert story.verified_genuine is True
     assert story.scan_count == 1  # Incremented on scan
-
