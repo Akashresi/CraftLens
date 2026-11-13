@@ -23,7 +23,7 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 # Set database URL dynamically from app settings
-config.set_main_option("sqlalchemy.url", settings.DATABASE_URL)
+config.set_main_option("sqlalchemy.url", settings.resolved_database_url)
 
 target_metadata = Base.metadata
 
@@ -43,10 +43,10 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     configuration = config.get_section(config.config_ini_section, {})
-    configuration["sqlalchemy.url"] = settings.DATABASE_URL
+    configuration["sqlalchemy.url"] = settings.resolved_database_url
     
     connect_args = {}
-    if settings.DATABASE_URL.startswith("sqlite"):
+    if settings.resolved_database_url.startswith("sqlite"):
         connect_args = {"check_same_thread": False}
 
     connectable = engine_from_config(

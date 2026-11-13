@@ -1,4 +1,5 @@
 import secrets
+from pathlib import Path
 
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -78,6 +79,18 @@ class Settings(BaseSettings):
     # Observability
     SENTRY_DSN: str = ""
     LOG_LEVEL: str = "INFO"
+
+    @property
+    def resolved_database_url(self) -> str:
+        """Resolves relative SQLite database URLs to an absolute path anchored at the backend directory."""
+        if self.DATABASE_URL.startswith("sqlite:///") and not self.DATABASE_URL.startswith("sqlite:////"):
+            rel_path = self.DATABASE_URL.replace("sqlite:///", "")
+            if rel_path.startswith("./"):
+                rel_path = rel_path[2:]
+            backend_dir = Path(__file__).resolve().parents[2]
+            abs_db_path = (backend_dir / rel_path).resolve()
+            return f"sqlite:///{abs_db_path.as_posix()}"
+        return self.DATABASE_URL
 
     @model_validator(mode="after")
     def validate_production_secrets(self) -> "Settings":

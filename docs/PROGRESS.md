@@ -135,7 +135,14 @@ Methodology: **ACT -> VERIFY -> RECORD** (evidence required for every ticked ite
 ---
 
 ## PHASE 8: DOCUMENTATION AND DEMO
-- [ ] Honest `README.md` rewrite with architecture diagram, `LICENSE`, `CONTRIBUTING.md`, repo topics/description.
-- [ ] Realistic seed data + 5-minute demo script.
-- [ ] `/docs/KNOWN_LIMITATIONS.md` & `/docs/PILOT_PLAN.md` (1 craft cluster, 20-50 artisans, NGO verification partner, success metrics).
-- [ ] **PHASE 8 GATE**
+- [x] Honest `README.md` rewrite with architecture diagram, `LICENSE`, `CONTRIBUTING.md`, repo topics/description.
+  - Evidence: Completely rewrote `README.md` with verified Mermaid diagrams (system architecture, order state machine, Ed25519 provenance sequence), embedded screenshots from `photos/` (`Figure_4.3`, `Figure_4.4`, `Figure_4.5`, `Figure_4.7`, `Figure_4.10`), single-command runner instructions (`python run.py --admin`), and an honest feature & simulation matrix. Added `LICENSE` (MIT) and `CONTRIBUTING.md` with pre-PR quality checklist.
+- [x] Realistic seed data + 5-minute demo script.
+  - Evidence: Created `scripts/seed_demo.py` (idempotent, seeding 5 master artisans across 6 categories, 2 buyers with verified GSTIN, 7 craft products, Ed25519 digitally signed provenance, 2 orders, and 1 B2B RFQ). Created `docs/DEMO_SCRIPT.md` with a minute-by-minute judge walkthrough script.
+- [x] `/docs/KNOWN_LIMITATIONS.md` & `/docs/PILOT_PLAN.md` (1 craft cluster, 20-50 artisans, NGO verification partner, success metrics).
+  - Evidence: Authored `docs/KNOWN_LIMITATIONS.md` detailing every simulated external transport (`"STUB"` in SMS OTP, Bhashini ASR fallback with honest 0.25 confidence score, Shiprocket sandbox, and U2Net weight downloads). Authored `docs/PILOT_PLAN.md` detailing a 3-month field pilot for Varanasi Weavers (HWA partner, 35 weavers) and Vilachery Potters (25 families) with quantitative KPIs.
+- [x] **PHASE 8 GATE PASSED**: Full monorepo verification passed cleanly:
+  - Backend: `ruff check` (0 errors), `ruff format` (93 files formatted), `mypy` (65 files clean), `bandit` (0 issues), `pytest` **56 passed, 90.28% coverage** (`python -m pytest backend/tests --cov=backend/app --cov-fail-under=80 -v`).
+  - Web: `buyer-web` build passed (16 static routes), `admin-web` build passed (4 static routes, 0 ESLint warnings/errors).
+  - Mobile: `mobile` `npx tsc --noEmit` passed (0 errors).
+  - Operations & Data: DB migrations reversible (`test_reversible_alembic_migrations PASSED`), backup & restore drill verified (`47 tables`), `seed_demo.py` 100% idempotent.
